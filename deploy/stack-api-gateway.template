@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Domain:
+    Description: Domain name that we will get a certificate for and associate with an API Gateway
+    Type: String
+    MinLength: "1"
+
+  HostedZoneId:
+    Description: Hosted Zone ID of the domain, for certificate verification and for API Gateway records
+    Type: String
+    MinLength: "1"
+
+  ReservedConcurrency:
+    Description: Max number of Lambdas that can run at the same time, if -1 use unreserved concurrency
+    Type: Number
+    Default: -1
+
+  ThrottlingRateLimit:
+    Description: Max number of HTTP requests to allow per second over the long term
+    Type: Number
+    Default: 50
+
+  ThrottlingBurstLimit:
+    Description: Max number of HTTP requests to allow per second for a short burst
+    Type: Number
+    Default: 200
+
+Resources:
+  HttpLambdaStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./stack-lambda.yml
+      Parameters:
+        ReservedConcurrency: !Ref ReservedConcurrency
+
+  CertificateStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        Domain: !Ref Domain
+        HostedZoneId: !Ref HostedZoneId
+      TemplateURL: ./stack-certificate.yml
+
+  ApiGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        LambdaArn: !GetAtt HttpLambdaStack.Outputs.HttpLambdaArn
+        ThrottlingRateLimit: !Ref ThrottlingRateLimit
+        ThrottlingBurstLimit: !Ref ThrottlingBurstLimit
+      TemplateURL: ./stack-api-gateway.yml
+
+  ApiGatewayDomainStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CertificateArn: !GetAtt CertificateStack.Outputs.CertificateArn
+        Domain: !Ref Domain
+        HostedZoneId: !Ref HostedZoneId
+        Api: !GetAtt ApiGatewayStack.Outputs.Api
+        V1Stage: !GetAtt ApiGatewayStack.Outputs.V1Stage
+      TemplateURL: ./stack-api-gateway-domain.yml

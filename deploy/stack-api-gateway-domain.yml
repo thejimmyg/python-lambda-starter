@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Domain:
+    Description: Domain for API
+    Type: String
+    MinLength: "1"
+
+  HostedZoneId:
+    Description: Hosted Zone Id in which you want to add record
+    Type: String
+    MinLength: "1"
+
+  Api:
+    Description: Api ID
+    Type: String
+    MinLength: "1"
+
+  V1Stage:
+    Description: Stage ARN
+    Type: String
+    MinLength: "1"
+
+  CertificateArn:
+    Description: Certificate ARN
+    Type: String
+    MinLength: "1"
+
+Resources:
+  ApiCustomDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Ref Domain
+      DomainNameConfigurations:
+        - CertificateArn: !Ref CertificateArn
+          SecurityPolicy: TLS_1_2
+          EndpointType: REGIONAL
+
+  Route53RecordSetGroup:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: !Ref Domain
+      Type: A
+      HostedZoneId: !Ref HostedZoneId
+      AliasTarget:
+        DNSName: !GetAtt ApiCustomDomain.RegionalDomainName
+        HostedZoneId: !GetAtt ApiCustomDomain.RegionalHostedZoneId
+
+  ApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+
+    # https://stackoverflow.com/questions/43924140/invalid-domain-name-identifier-specified
+    DependsOn:
+      - ApiCustomDomain
+    Properties:
+      DomainName: !Ref Domain
+      ApiId: !Ref Api
+      Stage: !Ref V1Stage

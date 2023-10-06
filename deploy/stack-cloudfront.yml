@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: (SOIVS04132021)-Reference recipe to create CloudFront distribution with Lambda Function as origin
+
+Metadata:
+  AWS::CloudFormation::Interface:
+
+    # define parameter logical grouping
+    ParameterGroups:
+      - Label:
+          default: Lambda Function Endpoint
+        Parameters:
+          - LambdaEndpoint
+
+    # define parameter logical grouping
+    ParameterLabels:
+      LambdaEndpoint:
+        default: Remove 'https://' from the Function URL endpoint
+
+Parameters:
+  LambdaEndpoint:
+    Type: String
+    ConstraintDescription: Enter the Lambda Function URL endpoint
+
+  Domain:
+    Description: The domain to use as an alias in CloudFront
+    Type: String
+    MinLength: 1
+
+  CertificateArn:
+    Description: The certificate ARN in us-east-1 for the domain to use as an alias in CloudFront
+    Type: String
+    MinLength: 1
+
+  HostedZoneId:
+    Description: The Hosted Zone ID to create the Alias record set in to forward to the cloudfront domain
+    Type: String
+    MinLength: 1
+
+Rules:
+  LambdaEndpointPresent:
+    Assertions:
+      - Assert: !Not
+          - !Equals
+            - !Ref LambdaEndpoint
+            - ""
+        AssertDescription: Lambda Function URL endpoint cannot be empty.
+
+Resources:
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+        Aliases: [!Ref Domain]
+        PriceClass: PriceClass_All
+        HttpVersion: http2
+        IPV6Enabled: true
+        Comment: !Sub ${AWS::StackName}-Demo distribution with Lambda Function URL(cloudfront-lambda-url-2022)
+        Origins:
+          - DomainName: !Ref LambdaEndpoint
+            Id: LambdaOrigin
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+        Enabled: "true"
+        DefaultCacheBehavior:
+          TargetOriginId: LambdaOrigin
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          ViewerProtocolPolicy: redirect-to-https
+          SmoothStreaming: "false"
+          Compress: "true"
+
+  DNS:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !Ref Domain
+          Type: A
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt Distribution.DomainName
+
+Outputs:
+  CloudFrontDomain:
+    Description: CloudFront default domain name configured
+    Value: !Sub https://${Distribution.DomainName}/

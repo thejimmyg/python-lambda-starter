@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Name:
+    Description: The name of the NS record you want to add some.example.com
+    Type: String
+    MinLength: "1"
+
+Resources:
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref Name
+
+Outputs:
+  HostedZoneId:
+    Description: Hosted zone ID
+    Value: !Ref HostedZone
+
+  NameserverRecords:
+    Description: The records to use for this zone
+    Value: !Join [' ', !GetAtt HostedZone.NameServers]

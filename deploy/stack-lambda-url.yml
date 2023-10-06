@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  HttpLambdaArn:
+    Description: The ARN for the lambda to run
+    Type: String
+    MinLength: "1"
+
+Resources:
+  HttpLambdaUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      AuthType: NONE
+
+      # If you need CORS, uncomment these and set the values you want
+      # Cors:
+      #   AllowCredentials: true
+      #   AllowOrigins:
+      #     - '*'
+      #   AllowHeaders: 
+      #     - '*'
+      #   AllowMethods: 
+      #     - '*'
+      #   ExposeHeaders: 
+      #     - '*'
+      #   MaxAge: 10
+      TargetFunctionArn: !Ref HttpLambdaArn
+
+  HttpLambdaUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref HttpLambdaArn
+      Principal: '*'
+      Action: lambda:InvokeFunctionUrl
+      FunctionUrlAuthType: NONE
+
+Outputs:
+  HttpLambdaUrl:
+    Description: The URL created to call your Lambda function
+    Value: !GetAtt HttpLambdaUrl.FunctionUrl

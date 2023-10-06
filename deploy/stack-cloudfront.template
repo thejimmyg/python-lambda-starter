@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  CertificateArn:
+    Description: The ARN of the certificate in us-east-1 for the domain. It will be used by CloudFront.
+    Type: String
+    MinLength: "1"
+
+  Domain:
+    Description: Domain name that we will get a certificate for and associate with the Lambda Function
+    Type: String
+    MinLength: "1"
+
+  HostedZoneId:
+    Description: Hosted Zone ID of the domain, for certificate verification and CloudFront alias records
+    Type: String
+    MinLength: "1"
+
+  ReservedConcurrency:
+    Description: Max number of Lambdas that can run at the same time, if -1 use unreserved concurrency
+    Type: Number
+    Default: -1
+
+Resources:
+  HttpLambdaStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./stack-lambda.yml
+      Parameters:
+        ReservedConcurrency: !Ref ReservedConcurrency
+
+  HttpLambdaUrlStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        HttpLambdaArn: !GetAtt HttpLambdaStack.Outputs.HttpLambdaArn
+      TemplateURL: ./stack-lambda-url.yml
+
+  CloudFrontStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        Domain: !Ref Domain
+        CertificateArn: !Ref CertificateArn
+        HostedZoneId: !Ref HostedZoneId
+        LambdaEndpoint: !Join ["", !Split [/, !Join ["", !Split ['https://', !GetAtt HttpLambdaUrlStack.Outputs.HttpLambdaUrl]]]]
+      TemplateURL: ./stack-cloudfront.yml

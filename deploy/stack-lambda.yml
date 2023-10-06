@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  ReservedConcurrency:
+    Description: Max number of Lambdas that can run at the same time, if -1 use unreserved concurrency
+    Type: Number
+    Default: -1
+
+Conditions:
+  SetReservedConcurrentExecutions: !Not [!Equals [!Ref ReservedConcurrency, -1]]
+
+Resources:
+
+  # Html Lambda
+  HttpLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+
+      # RoleName: !Sub '${AWS::StackName}HttpLambdaRole'
+      RoleName: !Join ["", [!Select [0, !Split ['-', !Sub "${AWS::StackName}"]], HttpLambdaRole]]
+      Description: An execution role for a Lambda function launched by CloudFormation
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  HttpLambdaPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}HttpLambdaPolicy'
+      Description: Managed policy for a Lambda function launched by CloudFormation
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+            Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${HttpLambdaLogGroup}:*"
+          - Effect: Allow
+            Action:
+              - logs:PutLogEvents
+            Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${HttpLambdaLogGroup}:*"
+
+      # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
+      Roles:
+        - !Ref HttpLambdaRole
+
+  # See https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/147
+  # https://typicalrunt.me/2019/09/20/enforcing-least-privilege-when-logging-lambda-functions-to-cloudwatch/
+  # WARNING: If the lambda function gets updated, its name will change, so the log group will change, so the old logs will get deleted despite the retention period here.
+  HttpLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${HttpLambda}"
+      RetentionInDays: 30
+
+  HttpLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Role: !GetAtt HttpLambdaRole.Arn
+      Code: ../app
+      ReservedConcurrentExecutions: !If
+        - SetReservedConcurrentExecutions
+        - !Ref ReservedConcurrency
+        - !Ref AWS::NoValue
+      Architectures:
+        - arm64
+      Runtime: python3.11
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Environment:
+        Variables:
+          ENV: Hello
+
+Outputs:
+  HttpLambdaArn:
+    Description: The ARN of the HTML lambda function to invoke
+    Value: !GetAtt HttpLambda.Arn

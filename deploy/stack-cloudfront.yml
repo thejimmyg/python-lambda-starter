@@ -68,10 +68,18 @@ Resources:
         Enabled: "true"
         DefaultCacheBehavior:
           TargetOriginId: LambdaOrigin
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+
+          # Cache almost everything
+          # CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          # Cache nothing
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+
+          # Pass on all headers except host
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
           ViewerProtocolPolicy: redirect-to-https
           SmoothStreaming: "false"
           Compress: "true"
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
 
   DNS:
     Type: AWS::Route53::RecordSetGroup

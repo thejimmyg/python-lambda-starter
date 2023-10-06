@@ -21,9 +21,11 @@ class Html:
 
 def render(title, body):
     return (
-        Html("<!DOCTYPE html>\n<html><head><title>")
+        Html('<!DOCTYPE html>\n<html lang="en"><head><title>')
         + title
-        + Html("</title></head><body><h1>")
+        + Html(
+            '</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta charset="UTF-8"></head><body><h1>'
+        )
         + title
         + Html("</h1>")
         + body

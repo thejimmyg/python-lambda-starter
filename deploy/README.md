@@ -40,7 +40,7 @@ aws cloudformation create-stack \
 aws cloudformation wait stack-create-complete --stack-name "${CLOUDFORMATION_BUCKET_STACK_NAME}"
 ```
 
-### Domain, DNS and Certificate
+### Domain, DNS and Certificate
 
 You'll also need a Route53 Hosted Zone ID. You can create one manually, or use DNS Delegation to set up a sub-domain.
 
@@ -252,6 +252,5 @@ Tips:
 * The first time you run the `deploy` command add `--disable-rollback` just so that if anything goes wrong you don't need to wait for all the successful bits to be deleted before you can run the command again
 * You'll need to delete the stack from the CloudFormation console if it rolls back before you can try to create it again
 * If you need to re-deploy and it looks like the `package` command isn't picking up all your changes, run it again with `--s3-prefix` option changed to a different name to force re-uploading.
-```
 
 Then you can run the tests.

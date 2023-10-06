@@ -2,10 +2,8 @@ def test_template_render_home():
     from app.template import render_home
 
     html = render_home().render()
-    assert (
-        html
-        == '<!DOCTYPE html>\n<html><head><title>Home</title></head><body><h1>Home</h1><ul>\n<li><a href="/html">HTML</a></li>\n<li><a href="/str">str</a></li>\n<li><a href="/dict">dict</a></li>\n<li><a href="/bytes">bytes</a></li>\n<li><a href="/other">Other (should raise error)</a></li>\n</ul>\n</body></html>'
-    ), repr(html)
+    expected = '<!DOCTYPE html>\n<html lang="en"><head><title>Home</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta charset="UTF-8"></head><body><h1>Home</h1><ul>\n<li><a href="/html">HTML</a></li>\n<li><a href="/str">str</a></li>\n<li><a href="/dict">dict</a></li>\n<li><a href="/bytes">bytes</a></li>\n<li><a href="/other">Other (should raise error)</a></li>\n</ul>\n</body></html>'
+    assert html == expected, repr((html, expected))
 
 
 def test_web_html(lambda_url):

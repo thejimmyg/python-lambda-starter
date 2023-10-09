@@ -1,3 +1,6 @@
+import urllib.parse
+
+import logic
 from template import Html, render
 
 
@@ -10,6 +13,7 @@ def home(http):
         ("/bytes", "bytes (may download)"),
         ("/other", "Other (should raise error)"),
         ("/static/hello.png", "hello.png"),
+        ("/submit", "Submit"),
     ]:
         body += Html('<li><a href="') + link + Html('">') + text + Html("</a></li>\n")
     body += Html("</ul>\n")
@@ -53,3 +57,21 @@ def handle_static(http):
         type, content = fp.read().strip().split(b"\n")
         http.response.headers["content-type"] = type
         http.response.body = http.response.Base64(content)
+
+
+def submit(http):
+    if http.request.method == "post":
+        q = urllib.parse.parse_qs(http.request.body.decode("utf8"))
+        result = logic.submit(
+            logic.SubmitInput(password=q["password"][0], id=int(q["id"][0]))
+        )
+        assert result.success
+        body = Html("<p>Submission in progress ...</p>\n")
+        http.response.body = render("Success", body)
+    else:
+        body = Html('<form method="post">\n')
+        body += Html('Password <input type="password" name="password">\n')
+        body += Html('ID <input type="input" name="id">\n')
+        body += Html('<input type="submit" value="Submit">\n')
+        body += Html("</form>\n")
+        http.response.body = render("Submit", body)

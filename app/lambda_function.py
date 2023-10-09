@@ -30,8 +30,8 @@ class Response:
     status: str
     headers: dict
     body: None | bytes | str | template.Html | dict | Base64
-    respond_early: RespondEarly
-    Base64: Base64
+    respond_early: type[RespondEarly]
+    Base64: type[Base64]
 
 
 @dataclasses.dataclass
@@ -74,8 +74,7 @@ def lambda_handler(event, context):
     except RespondEarly:
         pass
     # Don't need a except: block here because Lambda returns a 502 bad gateway on error and logs to cloudwatch anyway, and API gateway returns a 500.
-    response_body_type = type(http.response.body)
-    if response_body_type is bytes:
+    if isinstance(http.response.body, bytes):
         assert (
             "content-type" in http.response.headers
         ), "No content-type set for bytes type response"
@@ -85,7 +84,7 @@ def lambda_handler(event, context):
             "body": base64.b64encode(http.response.body),
             "isBase64Encoded": True,
         }
-    elif response_body_type is Base64:
+    elif isinstance(http.response.body, Base64):
         assert (
             "content-type" in http.response.headers
         ), "No content-type set for bytes type response"
@@ -96,7 +95,7 @@ def lambda_handler(event, context):
             "body": http.response.body._data,
             "isBase64Encoded": True,
         }
-    elif response_body_type is template.Html:
+    elif isinstance(http.response.body, template.Html):
         # Lambda adds the content length
         http.response.headers["content-type"] = "text/html"
         return {
@@ -104,7 +103,7 @@ def lambda_handler(event, context):
             "headers": http.response.headers,
             "body": http.response.body.render(),
         }
-    elif response_body_type is dict:
+    elif isinstance(http.response.body, dict):
         # Lambda adds the correct content type and content length headers
         # for JSON, API Gateway does not
         http.response.headers["content-type"] = "application/json"
@@ -114,7 +113,7 @@ def lambda_handler(event, context):
             # Lambda function URL encodes the JSON, API Gateway does not.
             "body": json.dumps(http.response.body),
         }
-    elif response_body_type is str:
+    elif isinstance(http.response.body, str):
         http.response.headers["content-type"] = "text/plain"
         return {
             "statusCode": int(http.response.status.split(" ")[0]),

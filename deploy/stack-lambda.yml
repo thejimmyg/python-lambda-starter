@@ -76,7 +76,7 @@ Resources:
       MemorySize: 128
       Environment:
         Variables:
-          ENV: Hello
+          PASSWORD: Hello123!
 
 Outputs:
   HttpLambdaArn:

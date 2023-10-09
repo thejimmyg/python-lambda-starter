@@ -7,6 +7,7 @@ The intention is to make merge both projects over time so that python-auth-tools
 ## Test
 
 ```sh
+PASSWORD=123 python3 test-unit.py
 export URL="https://app.4.example.com"
 python3 bin/encode_static.py
 time python3 test.py "$URL"
@@ -15,8 +16,16 @@ time python3 test.py "$URL"
 ## Dev
 
 ```sh
+pip install isort autoflake black mypy
+brew install cfn-format
+```
+
+Run code tidying:
+
+```sh
 cfn-format -w deploy/stack-*.yml deploy/stack-*.template
 isort . &&  autoflake -r --in-place --remove-unused-variables --remove-all-unused-imports . && black .
+mypy app/*.py test*.py --check-untyped-defs
 ```
 
 ## License

@@ -17,6 +17,8 @@ def app(http):
         web.test_other(http)
     elif http.request.path.startswith("/static/"):
         web.handle_static(http)
+    elif http.request.path.startswith("/submit"):
+        web.submit(http)
     else:
         http.response.headers["content-type"] = "text/plain"
         http.response.status = "404 Not Found"

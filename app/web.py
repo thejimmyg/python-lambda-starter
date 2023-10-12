@@ -1,7 +1,8 @@
+import os
 import urllib.parse
 
-import logic
-from template import Html, render
+from . import logic
+from .template import Html, render
 
 
 def home(http):
@@ -53,7 +54,9 @@ def test_other(http):
 
 def handle_static(http):
     filename = http.request.path[len("/static/") :]
-    with open("static_" + filename + ".txt", "rb") as fp:
+    with open(
+        os.path.join(os.path.dirname(__file__), "static_" + filename + ".txt"), "rb"
+    ) as fp:
         type, content = fp.read().strip().split(b"\n")
         http.response.headers["content-type"] = type
         http.response.body = http.response.Base64(content)
@@ -62,10 +65,8 @@ def handle_static(http):
 def submit(http):
     if http.request.method == "post":
         q = urllib.parse.parse_qs(http.request.body.decode("utf8"))
-        result = logic.submit(
-            logic.SubmitInput(password=q["password"][0], id=int(q["id"][0]))
-        )
-        assert result.success
+        result = logic.submit({"password": q["password"][0], "id": int(q["id"][0])})
+        assert result["success"]
         body = Html("<p>Submission in progress ...</p>\n")
         http.response.body = render("Success", body)
     else:

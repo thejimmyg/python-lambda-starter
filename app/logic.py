@@ -1,20 +1,10 @@
 import os
-from dataclasses import dataclass
+
+from .typeddicts import ApiResponse, SubmitInput
 
 
-@dataclass
-class SubmitInput:
-    password: str
-    id: int
-
-
-@dataclass
-class Response:
-    success: bool
-
-
-def submit(input: SubmitInput) -> Response:
-    if input.password != os.environ["PASSWORD"]:
+def submit(input: SubmitInput) -> ApiResponse:
+    if input["password"] != os.environ["PASSWORD"]:
         raise ValueError("Invalid password")
     else:
-        return Response(success=True)
+        return dict(success=True)

@@ -2,9 +2,7 @@ import base64
 import dataclasses
 import json
 
-import template
-
-import app
+from . import app, template
 
 
 class Base64:

@@ -11,6 +11,11 @@ Parameters:
     Type: String
     MinLength: "1"
 
+  Password:
+    Description: Password for the submit
+    Type: String
+    MinLength: "1"
+
   HostedZoneId:
     Description: Hosted Zone ID of the domain, for certificate verification and CloudFront alias records
     Type: String
@@ -28,6 +33,7 @@ Resources:
       TemplateURL: ./stack-lambda.yml
       Parameters:
         ReservedConcurrency: !Ref ReservedConcurrency
+        Password: !Ref Password
 
   HttpLambdaUrlStack:
     Type: AWS::CloudFormation::Stack

@@ -1,6 +1,8 @@
+.mypy_cache
 *.sw[op]
 .DS_Store
 app/__pycache__
 app/static_*.txt
+app/typeddicts.py
 deploy/*.env
 deploy/deploy-*.yml

@@ -5,6 +5,10 @@ Parameters:
     Description: Max number of Lambdas that can run at the same time, if -1 use unreserved concurrency
     Type: Number
     Default: -1
+  Password:
+    Description: Password for submit
+    Type: String
+    MinLength: 3
 
 Conditions:
   SetReservedConcurrentExecutions: !Not [!Equals [!Ref ReservedConcurrency, -1]]
@@ -64,7 +68,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Role: !GetAtt HttpLambdaRole.Arn
-      Code: ../app
+      Code: ../
       ReservedConcurrentExecutions: !If
         - SetReservedConcurrentExecutions
         - !Ref ReservedConcurrency
@@ -72,11 +76,11 @@ Resources:
       Architectures:
         - arm64
       Runtime: python3.11
-      Handler: lambda_function.lambda_handler
+      Handler: app.lambda_function.lambda_handler
       MemorySize: 128
       Environment:
         Variables:
-          PASSWORD: Hello123!
+          PASSWORD: !Ref Password
 
 Outputs:
   HttpLambdaArn:

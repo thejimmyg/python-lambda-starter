@@ -121,14 +121,6 @@ On the plus, bandwidth is about 10% cheaper than via API Gateway with per-reques
 
 Remove any `__pycache__` files that could interfere with the production environment.
 
-Build static files:
-
-```sh
-cd ..
-python3 bin/encode_static.py
-cd deploy
-```
-
 Then you package everything into the CloudFormation bucket, then you deploy it. Let's do all steps together in this long command:
 
 ```
@@ -138,7 +130,7 @@ export STACK_NAME="App"
 Package and deploy:
 
 ```sh
-rm -r ../app/__pycache__ ; \
+cd .. && python3 bin/encode_static.py && python3 bin/gen_typeddicts.py > app/typeddicts.py && cd deploy && rm -r ../app/__pycache__; \
 aws cloudformation package \
     --template-file "stack-api-gateway.template" \
     --s3-bucket "${CLOUDFORMATION_BUCKET}" \
@@ -153,7 +145,8 @@ time aws cloudformation deploy \
         "HostedZoneId=${HOSTED_ZONE_ID}" \
         "ReservedConcurrency=-1" \
         "ThrottlingRateLimit=50" \
-        "ThrottlingBurstLimit=200"
+        "ThrottlingBurstLimit=200" \
+        "Password=123"
 ```
 
 Tips:
@@ -220,18 +213,10 @@ Then you package everything into the CloudFormation bucket, then you deploy it. 
 export STACK_NAME="App"
 ```
 
-Build static files:
-
-```sh
-cd ..
-python3 bin/encode_static.py
-cd deploy
-```
-
 Package and deploy:
 
 ```sh
-rm -r ../app/__pycache__; \
+cd .. && python3 bin/encode_static.py && python3 bin/gen_typeddicts.py > app/typeddicts.py && cd deploy && rm -r ../app/__pycache__; \
 aws cloudformation package \
     --template-file "stack-cloudfront.template" \
     --s3-bucket "${CLOUDFORMATION_BUCKET}" \
@@ -245,7 +230,8 @@ time aws cloudformation deploy \
         "Domain=${DOMAIN}" \
         "HostedZoneId=${HOSTED_ZONE_ID}" \
         "CertificateArn=${CERTIFICATE_ARN}" \
-        "ReservedConcurrency=-1"
+        "ReservedConcurrency=-1" \
+        "Password=123"
 ```
 
 Tips:

@@ -59,14 +59,14 @@ def test_web_other(lambda_url):
         assert e.code in [500, 502], e.code
         response_body = e.read()
         if e.code == 502:
-            assert e.reason == "Bad Gateway"
+            assert e.reason == "Bad Gateway", e.reason
             assert response_body == b"Internal Server Error", response_body
             assert e.headers["Content-Type"] == "application/json", e.headers[
                 "Content-Type"
             ]
             assert e.headers["Content-Length"] == "21", e.headers["Content-Length"]
         else:
-            assert e.reason == "Internal Server Error"
+            assert e.reason == "Internal Server Error", e.reason
             assert (
                 response_body == b'{"message":"Internal Server Error"}'
             ), response_body
@@ -95,6 +95,39 @@ def test_web_static_hello_png(lambda_url):
             assert response_body == fp.read(), "Data differs"
 
 
+def test_api(lambda_url):
+    import json
+    import os
+    import urllib.request
+
+    data = json.dumps({"password": os.environ["PASSWORD"], "id": 123}).encode("utf8")
+    req = urllib.request.Request(lambda_url + "/api", data=data)
+    with urllib.request.urlopen(req) as response:
+        assert (
+            "Content-Type",
+            "application/json",
+        ) in response.getheaders(), response.getheaders()
+        response_body = response.read()
+        assert json.loads(response_body.decode("utf8")) == {
+            "success": True
+        }, response_body
+
+    # id is a string this time, not an integer
+    data = json.dumps({"password": os.environ["PASSWORD"], "id": "123"}).encode("utf8")
+    req = urllib.request.Request(lambda_url + "/api", data=data)
+    try:
+        with urllib.request.urlopen(req) as response:
+            raise Exception(
+                "Expected the API call with the wrong type for id to fail, but it succeeded"
+            )
+    except urllib.error.HTTPError as e:
+        assert e.code in [400], e.code
+        response_body = e.read()
+        assert e.reason == "Bad Request", e.reason
+        assert response_body == b"Invalid data", response_body
+        assert e.headers["Content-Type"] == "text/plain", e.headers["Content-Type"]
+
+
 if __name__ == "__main__":
     import sys
 
@@ -116,6 +149,9 @@ if __name__ == "__main__":
     print(".", end="")
     sys.stdout.flush()
     test_web_static_hello_png(lambda_url)
+    print(".", end="")
+    sys.stdout.flush()
+    test_api(lambda_url)
     print(".", end="")
     sys.stdout.flush()
     print("\nSUCCESS")

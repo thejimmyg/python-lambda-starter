@@ -15,6 +15,7 @@ Parameters:
     Description: Password for the submit
     Type: String
     MinLength: "1"
+    NoEcho: true
 
   HostedZoneId:
     Description: Hosted Zone ID of the domain, for certificate verification and CloudFront alias records

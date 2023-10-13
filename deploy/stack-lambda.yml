@@ -5,6 +5,7 @@ Parameters:
     Description: Max number of Lambdas that can run at the same time, if -1 use unreserved concurrency
     Type: Number
     Default: -1
+
   Password:
     Description: Password for submit
     Type: String
@@ -68,7 +69,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Role: !GetAtt HttpLambdaRole.Arn
-      Code: ../
+      Code: ../lambda.zip
       ReservedConcurrentExecutions: !If
         - SetReservedConcurrentExecutions
         - !Ref ReservedConcurrency

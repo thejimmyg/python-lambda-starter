@@ -1,8 +1,10 @@
-.mypy_cache
 *.sw[op]
 .DS_Store
+.mypy_cache
+.venv
 app/__pycache__
-app/static_*.txt
+app/static
 app/typeddicts.py
 deploy/*.env
 deploy/deploy-*.yml
+lambda.zip

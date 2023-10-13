@@ -54,9 +54,13 @@ def test_other(http):
 
 def handle_static(http):
     filename = http.request.path[len("/static/") :]
-    with open(
-        os.path.join(os.path.dirname(__file__), "static_" + filename + ".txt"), "rb"
-    ) as fp:
+    assert "/" not in filename
+    assert ".." not in filename
+    src = os.path.join(os.path.dirname(__file__), "static", filename + ".txt")
+    assert os.path.dirname(os.path.abspath(os.path.normpath(src))) == os.path.join(
+        os.path.dirname(os.path.abspath(os.path.normpath(__file__))), "static"
+    )
+    with open(src, "rb") as fp:
         type, content = fp.read().strip().split(b"\n")
         http.response.headers["content-type"] = type
         http.response.body = http.response.Base64(content)

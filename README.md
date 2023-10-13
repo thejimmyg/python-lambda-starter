@@ -4,42 +4,90 @@ This is an extraction of the core ideas in [python-auth-tools](https://github.co
 
 The intention is to make merge both projects over time so that python-auth-tools can be deployed on Lambda or standalone.
 
+
 ## Principles
 
 * Zero runtime dependencies -> low production maintenence, easier portability
 * Implement only the subset of features you need -> faster cold starts, easier to deploy elsewhere, easier to learn, less to maintain
 * Dynamic imports -> fast cold starts
+* Be able to edit everything in the lambda code editor -> perfect for experiments or dire emergencies
+* Rate limiting -> Never spend more than you expect
+
+
+## Install
+
+All platforms:
+
+```sh
+make venv
+```
+
+macOS:
+
+```sh
+brew install cfn-format awscli
+```
+
+Linux (you don't need the formatter to be able to build and deploy):
+
+* https://github.com/awslabs/aws-cloudformation-template-formatter/releases/tag/v1.1.3
+* https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
 
 ## Dev
 
-```sh
-pip install isort autoflake black mypy
-brew install cfn-format
-```
-
-Run code tidying:
+Build static files and typeddicts:
 
 ```sh
-cfn-format -w deploy/stack-*.yml deploy/stack-*.template
-isort . &&  autoflake -r --in-place --remove-unused-variables --remove-all-unused-imports . && black .
-mypy app/*.py test*.py --check-untyped-defs
+make
 ```
 
-## Test
+Clean up with:
 
 ```sh
-python3 bin/encode_static.py
-python3 bin/gen_typeddicts.py > app/typeddicts.py
-PASSWORD=123 python3 test-unit.py
+make clean
 ```
+
+Run code formatting for Python and CloudFormation:
+
+```sh
+make format
+```
+
+Static type checking and CloudFormation template validation:
+
+```sh
+make check
+```
+
+Unit tests:
+
+```sh
+make test
+```
+
 
 ## Deploy
 
-Follow [Deploy](deploy/README.md), then check deployment was successful with:
+Follow [Deploy](deploy/README.md) for the pre-requisites.
+
+Deploy the API Gateway version with:
 
 ```sh
-DOMAIN="https://app.4.example.com" PASSWORD="123" time python3 test.py "https://$DOMAIN"
+export AWS_ACCESS_KEY_ID="..."
+export AWS_REGION="..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_SESSION_TOKEN="..."
+export CLOUDFORMATION_BUCKET="..."
+export DOMAIN="..."
+export HOSTED_ZONE_ID="..."
+export PASSWORD="..."
+export STACK_NAME="..."
+make deploy
 ```
+
+There are separate [deploy instructions for CloudFront](deploy/CLOUDFRONT.md), but you must also follow the [Deploy](deploy/README.md) pre-requisites first.
+
 
 ## License
 

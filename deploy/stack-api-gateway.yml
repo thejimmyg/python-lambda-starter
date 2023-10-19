@@ -33,7 +33,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Api
     Properties:
       Description: HTTPS JWT Authorizer for Lambda
-      Name: !Sub '${AWS::StackName}AuthJwtChecker'
+      Name: !Sub '${AWS::StackName}-AuthJwtChecker'
       ProtocolType: HTTP
       CorsConfiguration: !If
         - UseCors

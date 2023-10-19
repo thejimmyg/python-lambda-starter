@@ -1,3 +1,16 @@
+import os
+
+# Disable any environment variables to make sure we don't accidentally make AWS calls in testing
+for k in os.environ:
+    if k not in (
+        "PASSWORD",
+        "AWS_REGION",
+        "TASKS_DYNAMODB_TABLE_NAME",
+        "TASKS_STATE_MACHINE_ARN",
+    ):
+        del os.environ[k]
+
+
 def test_template_render_home():
     from app.template import render_home
 
@@ -7,53 +20,67 @@ def test_template_render_home():
 
 
 def test_web_submit():
-    from app.app import app
-    from app.lambda_function import Base64, Http, Request, RespondEarly, Response
-    from app.template import Html
+    from unittest.mock import patch
 
-    http = Http(
-        request=Request(
-            path="/submit",
-            query="",
-            headers={},
-            method="get",
-            body=b"",
-        ),
-        response=Response(
-            status="200 OK",
-            headers={},
-            body=None,
-            respond_early=RespondEarly,
-            Base64=Base64,
-        ),
-        context=dict(uid="123"),
-    )
-    app(http)
-    assert isinstance(http.response.body, Html)
-    body = http.response.body.render()
-    assert "<form" in body, body
+    with patch("app.logic.begin_workflow") as begin_workflow, patch(
+        "app.logic.end_workflow"
+    ) as end_workflow, patch("app.logic.get_next_task") as get_next_task, patch(
+        "app.logic.begin_task"
+    ) as begin_task, patch(
+        "app.logic.end_task"
+    ) as end_task, patch(
+        "app.logic.begin_state_machine"
+    ) as begin_state_machine:
+        begin_workflow.return_value = "123"
+        get_next_task.return_value = (1, 2)
 
-    http = Http(
-        request=Request(
-            path="/submit",
-            query="",
-            headers={},
-            method="post",
-            body=b"password=" + os.environ["PASSWORD"].encode("utf8") + b"&id=1",
-        ),
-        response=Response(
-            status="200 OK",
-            headers={},
-            body=None,
-            respond_early=RespondEarly,
-            Base64=Base64,
-        ),
-        context=dict(uid="123"),
-    )
-    app(http)
-    assert isinstance(http.response.body, Html)
-    body = http.response.body.render()
-    assert "Success" in body, body
+        from adapter.http.shared import Base64, Http, Request, RespondEarly, Response
+        from app.app import app
+        from app.template import Html
+
+        http = Http(
+            request=Request(
+                path="/submit",
+                query="",
+                headers={},
+                method="get",
+                body=b"",
+            ),
+            response=Response(
+                status="200 OK",
+                headers={},
+                body=None,
+                respond_early=RespondEarly,
+                Base64=Base64,
+            ),
+            context=dict(uid="123"),
+        )
+        app(http)
+        assert isinstance(http.response.body, Html)
+        body = http.response.body.render()
+        assert "<form" in body, body
+
+        http = Http(
+            request=Request(
+                path="/submit",
+                query="",
+                headers={},
+                method="post",
+                body=b"password=" + os.environ["PASSWORD"].encode("utf8") + b"&id=1",
+            ),
+            response=Response(
+                status="200 OK",
+                headers={},
+                body=None,
+                respond_early=RespondEarly,
+                Base64=Base64,
+            ),
+            context=dict(uid="123"),
+        )
+        app(http)
+        assert isinstance(http.response.body, Html)
+        body = http.response.body.render()
+        assert "Success" in body, body
 
 
 def test_types():
@@ -75,37 +102,52 @@ def test_types():
 
 
 def test_api():
-    import json
+    from unittest.mock import patch
 
-    from app import typeddicts
-    from app.app import app
-    from app.lambda_function import Base64, Http, Request, RespondEarly, Response
+    with patch("app.logic.begin_workflow") as begin_workflow, patch(
+        "app.logic.end_workflow"
+    ) as end_workflow, patch("app.logic.get_next_task") as get_next_task, patch(
+        "app.logic.begin_task"
+    ) as begin_task, patch(
+        "app.logic.end_task"
+    ) as end_task, patch(
+        "app.logic.begin_state_machine"
+    ) as begin_state_machine:
+        begin_workflow.return_value = "123"
+        get_next_task.return_value = (1, 2)
 
-    http = Http(
-        request=Request(
-            path="/api",
-            query="",
-            headers={},
-            method="post",
-            body=json.dumps({"id": 123, "password": os.environ["PASSWORD"]}).encode(
-                "utf8"
+        import json
+
+        from adapter.http.shared import Base64, Http, Request, RespondEarly, Response
+        from app import typeddicts
+        from app.app import app
+
+        http = Http(
+            request=Request(
+                path="/api",
+                query="",
+                headers={},
+                method="post",
+                body=json.dumps({"id": 123, "password": os.environ["PASSWORD"]}).encode(
+                    "utf8"
+                ),
             ),
-        ),
-        response=Response(
-            status="200 OK",
-            headers={},
-            body=None,
-            respond_early=RespondEarly,
-            Base64=Base64,
-        ),
-        context=dict(uid="123"),
-    )
-    app(http)
-    assert (
-        isinstance(http.response.body, dict)
-        and typeddicts.is_apiresponse(http.response.body)
-        and http.response.body == {"success": True}
-    ), http.response.body
+            response=Response(
+                status="200 OK",
+                headers={},
+                body=None,
+                respond_early=RespondEarly,
+                Base64=Base64,
+            ),
+            context=dict(uid="123"),
+        )
+
+        app(http)
+        assert (
+            isinstance(http.response.body, dict)
+            and typeddicts.is_apiresponse(http.response.body)
+            and http.response.body == {"success": True}
+        ), http.response.body
 
 
 if __name__ == "__main__":

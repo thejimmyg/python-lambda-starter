@@ -1,42 +1,9 @@
 import base64
-import dataclasses
 import json
 
-from . import app, template
+import app.app
 
-
-class Base64:
-    def __init__(self, data):
-        self._data = data
-
-
-@dataclasses.dataclass
-class Request:
-    path: str
-    query: None | str
-    headers: dict
-    method: str
-    body: None | bytes
-
-
-class RespondEarly(Exception):
-    pass
-
-
-@dataclasses.dataclass
-class Response:
-    status: str
-    headers: dict
-    body: None | bytes | str | template.Html | dict | Base64
-    respond_early: type[RespondEarly]
-    Base64: type[Base64]
-
-
-@dataclasses.dataclass
-class Http:
-    request: Request
-    response: Response
-    context: dict
+from .shared import Base64, Http, Renderable, Request, RespondEarly, Response
 
 
 def lambda_handler(event, context):
@@ -68,7 +35,7 @@ def lambda_handler(event, context):
         request=request, response=response, context=dict(uid=context.aws_request_id)
     )
     try:
-        app.app(http)
+        app.app.app(http)
     except RespondEarly:
         pass
     # Don't need a except: block here because Lambda returns a 502 bad gateway on error and logs to cloudwatch anyway, and API gateway returns a 500.
@@ -93,7 +60,8 @@ def lambda_handler(event, context):
             "body": http.response.body._data,
             "isBase64Encoded": True,
         }
-    elif isinstance(http.response.body, template.Html):
+    # Checks anything with a render() method, regardless of the args.
+    elif isinstance(http.response.body, Renderable):
         # Lambda adds the content length
         http.response.headers["content-type"] = "text/html"
         return {

@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: An example template with an IAM role for a takss Lambda state machine.
+
+Parameters:
+  TableName:
+    Description: The name of the table (the stack name will be pre-pended)
+    Type: String
+    Default: Tasks
+    MinLength: "1"
+
+Resources:
+  TasksLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+  TasksLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt TasksLambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+
+
+          dynamodb = boto3.client('dynamodb', region_name=os.environ["AWS_REGION"])
+
+
+          class Abort(Exception):
+              pass
+
+          class Error(Exception):
+              pass
+
+          def handler(event, context):
+              response = dynamodb.get_item(
+                  TableName=f'{os.environ["STACK_NAME"]}{os.environ["TABLE_NAME"]}',
+                  Key={
+                      'pk': {
+                          'S': 'pk1',
+                      },
+                      'sk': {
+                          'S': 'sk1',
+                      }
+                  }
+              )
+              data = response['Item']['data']['S'].lower().strip()
+              print('Got data:', data)
+              if data.lower() == 'abort':
+                  raise Abort('This is an Abort error which should get caught and result in transition to the Fallback state!')
+              elif data.lower() == 'error':
+                  raise Error('This is an Error which should cause a retry!')
+              else:
+                  event['data'] = data
+                  return event
+      Runtime: python3.11
+      Timeout: "25"
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          STACK_NAME: !Sub '${AWS::StackName}'
+          TABLE_NAME: !Sub '${TableName}'
+
+  DynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-${TableName}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: true
+
+  TasksLambdaDynamoPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-TasksLambdaDynamoPolicy'
+      Description: Managed policy for the tasks Lambda function launched by CloudFormation
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:Query
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+            Resource:
+              - !GetAtt DynamoTable.Arn
+
+      # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
+      Roles:
+        - !Ref TasksLambdaExecutionRole
+
+  TasksLambdaCloudWatchPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-TasksLambdaCloudWatchPolicy'
+      Description: Managed policy for the tasks Lambda function launched by CloudFormation
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+            Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${TasksLambdaLogGroup}:*"
+          - Effect: Allow
+            Action:
+              - logs:PutLogEvents
+            Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${TasksLambdaLogGroup}:*"
+
+      # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
+      Roles:
+        - !Ref TasksLambdaExecutionRole
+
+  # See https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/147
+  # https://typicalrunt.me/2019/09/20/enforcing-least-privilege-when-logging-lambda-functions-to-cloudwatch/
+  # WARNING: If the lambda function gets updated, its name will change, so the log group will change, so the old logs will get deleted despite the retention period here.
+  TasksLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${TasksLambdaFunction}"
+      RetentionInDays: 30
+
+  StatesExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: StatesExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: '*'
+
+  StateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: !GetAtt StatesExecutionRole.Arn
+      Definition:
+        Comment: A Hello World example using an AWS Lambda function that retires and catches
+        StartAt: HelloWorld
+        States:
+          HelloWorld:
+            Type: Task
+            Resource: !GetAtt TasksLambdaFunction.Arn
+            Retry:
+              - ErrorEquals: [Abort]
+                MaxAttempts: 0
+              - ErrorEquals: [States.ALL]
+                IntervalSeconds: 20
+                MaxAttempts: 4
+                BackoffRate: 1.2
+            Catch:
+              - ErrorEquals: [Abort]
+                Next: Fallback
+            End: true
+          Fallback:
+            Type: Pass
+            Parameters:
+              Cause.$: States.StringToJson($.Cause)
+            End: true
+
+Outputs:
+  TableArn:
+    Description: The ARN of the DynamoDB table (including the generated stack name)
+    Value: !GetAtt DynamoTable.Arn
+
+  TableName:
+    Description: The full name of the DynamoDB table (including the generated stack name)
+    Value: !Ref DynamoTable
+
+  StateMachineArn:
+    Description: The ARN of the state machine that keeps the tasks lambda running
+    Value: !Ref StateMachine

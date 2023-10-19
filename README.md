@@ -2,7 +2,7 @@
 
 This is an extraction of the core ideas in [python-auth-tools](https://github.com/thejimmyg/python-auth-tools) but without any of the auth!
 
-The intention is to make merge both projects over time so that python-auth-tools can be deployed on Lambda or standalone.
+The intention is to merge both projects over time so that python-auth-tools can be deployed on Lambda or standalone.
 
 
 ## Principles
@@ -74,8 +74,8 @@ Follow [Deploy](deploy/README.md) for the pre-requisites.
 Deploy the API Gateway version with:
 
 ```sh
-export AWS_ACCESS_KEY_ID="..."
 export AWS_REGION="..."
+export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
 export AWS_SESSION_TOKEN="..."
 export CLOUDFORMATION_BUCKET="..."
@@ -83,7 +83,7 @@ export DOMAIN="..."
 export HOSTED_ZONE_ID="..."
 export PASSWORD="..."
 export STACK_NAME="..."
-make deploy
+make deploy-lambda
 ```
 
 There are separate [deploy instructions for CloudFront](deploy/CLOUDFRONT.md), but you must also follow the [Deploy](deploy/README.md) pre-requisites first.

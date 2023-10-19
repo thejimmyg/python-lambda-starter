@@ -20,6 +20,8 @@ def app(http):
         web.handle_static(http)
     elif http.request.path.startswith("/submit"):
         web.submit(http)
+    elif http.request.path.startswith("/progress"):
+        web.progress(http)
     elif http.request.path.startswith("/api"):
         if http.request.method == "post":
             data = json.loads(http.request.body.decode("utf8"))

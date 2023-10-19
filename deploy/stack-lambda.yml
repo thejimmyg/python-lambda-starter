@@ -11,6 +11,16 @@ Parameters:
     Type: String
     MinLength: 3
 
+  TasksDynamodbTableName:
+    Description: The name of the DynamoDB Table used for storing tasks
+    Type: String
+    MinLength: 3
+
+  TasksStateMachineArn:
+    Description: The ARN of the state machine for keeping the task lambda running to completion
+    Type: String
+    MinLength: 3
+
 Conditions:
   SetReservedConcurrentExecutions: !Not [!Equals [!Ref ReservedConcurrency, -1]]
 
@@ -21,7 +31,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
 
-      # RoleName: !Sub '${AWS::StackName}HttpLambdaRole'
+      # RoleName: !Sub '${AWS::StackName}-HttpLambdaRole'
       RoleName: !Join ["", [!Select [0, !Split ['-', !Sub "${AWS::StackName}"]], HttpLambdaRole]]
       Description: An execution role for a Lambda function launched by CloudFormation
       AssumeRolePolicyDocument:
@@ -36,7 +46,7 @@ Resources:
   HttpLambdaPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub '${AWS::StackName}HttpLambdaPolicy'
+      ManagedPolicyName: !Sub '${AWS::StackName}-HttpLambdaPolicy'
       Description: Managed policy for a Lambda function launched by CloudFormation
       PolicyDocument:
         Version: "2012-10-17"
@@ -77,13 +87,19 @@ Resources:
       Architectures:
         - arm64
       Runtime: python3.11
-      Handler: app.lambda_function.lambda_handler
+      Handler: adapter.http.lambda_function.lambda_handler
       MemorySize: 128
       Environment:
         Variables:
           PASSWORD: !Ref Password
+          TASKS_DYNAMODB_TABLE_NAME: !Ref TasksDynamodbTableName
+          TASKS_STATE_MACHINE_ARN: !Ref TasksStateMachineArn
 
 Outputs:
   HttpLambdaArn:
     Description: The ARN of the HTML lambda function to invoke
     Value: !GetAtt HttpLambda.Arn
+
+  HttpLambdaExecutionRoleFriendlyName:
+    Description: The friendly name of the lambda execution role, useful for adding policies to it in other stacks
+    Value: !Ref HttpLambdaRole

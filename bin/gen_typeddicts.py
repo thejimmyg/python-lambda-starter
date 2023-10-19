@@ -1,4 +1,4 @@
-from typing import Literal, NotRequired, Type, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 JsonschemaObject = TypedDict(
     "JsonschemaObject",
@@ -42,11 +42,19 @@ response_jsonschema: JsonschemaObject = {
 }
 
 
-jsonschema_types_to_python_types: dict[str, Type] = {
-    "string": str,
-    "integer": int,
-    "boolean": bool,
+jsonschema_types_to_python_types: dict[str, str] = {
+    "string": "str",
+    "integer": "int",
+    "boolean": "bool",
 }
+
+forward_references = []
+
+
+def encode_type(t):
+    if t in forward_references:
+        return '"' + t + '"'
+    return t
 
 
 print("from typing import TypedDict, TypeGuard, NotRequired")
@@ -60,11 +68,11 @@ for jsonschema in [
     for key, value in jsonschema["properties"].items():
         if key in jsonschema.get("required", []):
             print(
-                f"    '{key}': {jsonschema_types_to_python_types[value['type']].__name__},"
+                f"    '{key}': {encode_type(jsonschema_types_to_python_types[value['type']])},"
             )
         else:
             print(
-                f"    '{key}': NotRequired[{jsonschema_types_to_python_types[value['type']].__name__}],"
+                f"    '{key}': NotRequired[{encode_type(jsonschema_types_to_python_types[value['type']])}],"
             )
     print("})")
     print()
@@ -76,12 +84,12 @@ for jsonschema in [
     for key, value in jsonschema["properties"].items():
         if key in jsonschema.get("required", []):
             print(
-                f"        assert isinstance(value['{key}'], {jsonschema_types_to_python_types[value['type']].__name__})"
+                f"        assert isinstance(value['{key}'], {jsonschema_types_to_python_types[value['type']]})"
             )
         else:
             print(f"        if '{key}' in value:")
             print(
-                f"            assert isinstance(value['{key}'], {jsonschema_types_to_python_types[value['type']].__name__})"
+                f"            assert isinstance(value['{key}'], {jsonschema_types_to_python_types[value['type']]})"
             )
     print("        return True")
     print("    except (KeyError, AssertionError):")

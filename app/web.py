@@ -80,3 +80,12 @@ def submit(http):
         body += Html('<input type="submit" value="Submit">\n')
         body += Html("</form>\n")
         http.response.body = render("Submit", body)
+
+
+import driver.tasks.auto
+
+
+def progress(http):
+    q = urllib.parse.parse_qs(http.request.query)
+    header, tasks = driver.tasks.auto.progress(q["workflow_id"][0])
+    http.response.body = dict(header=header, tasks=tasks)

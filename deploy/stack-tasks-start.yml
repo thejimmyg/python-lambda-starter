@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: An example template with an IAM role for a Lambda state machine.
+
+Parameters:
+  StartingLambdaExecutionRoleFriendlyName:
+    Description: The friendly name of the execution role of the Lambda that will start the execution of the state machine
+    Type: String
+    MinLength: "1"
+
+  DynamodbTableArn:
+    Description: The ARN of the DynamoDB Table used for storing tasks
+    Type: String
+    MinLength: 3
+
+  StateMachineArn:
+    Description: The ARN of the state machine that keeps the tasks lambda alive
+    Type: String
+    MinLength: 3
+
+Resources:
+  StartingLambdaStateMachineStartExecutionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}StartingLambdaStartExecutionPolicy'
+      Description: Managed policy for a Lambda function to start a state machine execution
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - states:StartExecution
+            Resource:
+              - !Ref StateMachineArn
+
+      # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
+      Roles:
+        - !Ref StartingLambdaExecutionRoleFriendlyName
+
+  StartingLambdaDynamoPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}StartingLambdaDynamoPolicy'
+      Description: Managed policy for a Lambda function to access DynamoDB for the purposes of running a state machine
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:Query
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+            Resource:
+              - !Ref DynamodbTableArn
+
+      # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
+      Roles:
+        - !Ref StartingLambdaExecutionRoleFriendlyName

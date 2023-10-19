@@ -138,7 +138,7 @@ export STACK_NAME="App"
 Package and deploy:
 
 ```sh
-make deploy
+make deploy-lambda
 ```
 
 Tips:

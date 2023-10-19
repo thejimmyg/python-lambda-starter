@@ -2,7 +2,7 @@
 .DS_Store
 .mypy_cache
 .venv
-app/__pycache__
+__pycache__
 app/static
 app/typeddicts.py
 deploy/*.env

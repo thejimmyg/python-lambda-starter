@@ -36,18 +36,16 @@ format-cfn:
 
 clean:
 	rm -f app/static/*.txt app/typeddicts.py
-	rm -rf app/__pycache__
 	rm -f deploy/deploy*.yml
 	rm -f lambda.zip tasks-lambda.zip
+	find app adapter driver -type d  -name __pycache__ -print0 | xargs -0 rm -rf
 
 tasks-lambda.zip: lambda.zip
 	cp lambda.zip tasks-lambda.zip
 
 lambda.zip:
 	rm -rf lambda.zip
-	zip --exclude 'app/__pycache__/*' -r lambda.zip app
-	zip -ur lambda.zip adapter/__init__.py adapter/http/__init__.py adapter/http/lambda_function.py adapter/http/shared.py driver/__init__.py driver/tasks/__init__.py driver/tasks/auto.py driver/tasks/dynamodb.py adapter/tasks/__init__.py adapter/tasks/shared.py adapter/tasks/lambda_function.py
-
+	zip --exclude '*/__pycache__/*' -r lambda.zip app adapter driver
 
 deploy-check-env-aws:
 ifndef AWS_REGION

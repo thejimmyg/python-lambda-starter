@@ -8,3 +8,4 @@ app/typeddicts.py
 deploy/*.env
 deploy/deploy-*.yml
 lambda.zip
+tasks-lambda.zip

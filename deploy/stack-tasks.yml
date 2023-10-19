@@ -24,52 +24,21 @@ Resources:
   TasksLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Handler: index.handler
       Role: !GetAtt TasksLambdaExecutionRole.Arn
-      Code:
-        ZipFile: |
-          import boto3
-          import os
-
-
-          dynamodb = boto3.client('dynamodb', region_name=os.environ["AWS_REGION"])
-
-
-          class Abort(Exception):
-              pass
-
-          class Error(Exception):
-              pass
-
-          def handler(event, context):
-              response = dynamodb.get_item(
-                  TableName=f'{os.environ["STACK_NAME"]}{os.environ["TABLE_NAME"]}',
-                  Key={
-                      'pk': {
-                          'S': 'pk1',
-                      },
-                      'sk': {
-                          'S': 'sk1',
-                      }
-                  }
-              )
-              data = response['Item']['data']['S'].lower().strip()
-              print('Got data:', data)
-              if data.lower() == 'abort':
-                  raise Abort('This is an Abort error which should get caught and result in transition to the Fallback state!')
-              elif data.lower() == 'error':
-                  raise Error('This is an Error which should cause a retry!')
-              else:
-                  event['data'] = data
-                  return event
+      Code: ../tasks-lambda.zip
       Runtime: python3.11
-      Timeout: "25"
+      Timeout: 900
+      Handler: adapter.tasks.lambda_function.lambda_handler
       Architectures:
         - arm64
       Environment:
         Variables:
-          STACK_NAME: !Sub '${AWS::StackName}'
-          TABLE_NAME: !Sub '${TableName}'
+          TASKS_DYNAMODB_TABLE_NAME: !Sub '${AWS::StackName}-${TableName}'
+          # How much time to make sure is still available (the DELAY_MS value gets added on top of this)
+          SAFETY_MULTIPLE: 1.4
+          SAFETY_DELAY_MS: 0
+          # How many ms to wait after each task
+          DELAY_MS: 0
 
   DynamoTable:
     Type: AWS::DynamoDB::Table
@@ -183,14 +152,6 @@ Resources:
                 IntervalSeconds: 20
                 MaxAttempts: 4
                 BackoffRate: 1.2
-            Catch:
-              - ErrorEquals: [Abort]
-                Next: Fallback
-            End: true
-          Fallback:
-            Type: Pass
-            Parameters:
-              Cause.$: States.StringToJson($.Cause)
             End: true
 
 Outputs:

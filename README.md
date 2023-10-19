@@ -13,6 +13,38 @@ The intention is to merge both projects over time so that python-auth-tools can 
 * Be able to edit everything in the lambda code editor -> perfect for experiments or dire emergencies
 * Rate limiting -> Never spend more than you expect
 
+## Architecture
+
+This uses the ports and adapters or hexagonal architecture with slightly
+different nomlenclature to make it more accessible to those unfamiliar with the
+style.
+
+*Incoming* ports and adapters are called *adapters* and are in the `adapters`
+folder. In each sub-folder the incoming port is in a file called `shared.py`
+and the incoming adapters are in the other files.
+
+*Outgoing* ports and adapters are called *drivers* and are in the `drivers`
+folder. In each sub-folder the port is in `auto.py` and the implementation in the other files.
+
+Code that relies on a driver should import its implementation from `auto.py`.
+Within that file, the correct adapter will we chosen based on environment
+variables.
+
+Code that relies on environment variables should read them as late as possible,
+and not assign them to global variables.
+
+
+## Tasks
+
+There is a simple system for running a series of sequential tasks, and tracking
+their progress. The task system consists of a state machine to manage retries
+(either errors, or because the lambda has reached the 15 min limit), an adapter
+to connect the state machine to a lambda function, an `app.tasks` file with the
+task definitions and a tasks driver to track task progress.
+
+The tasks and HTTP lambdas both use exactly the same code, it is just deployed
+to different lambda functions with different timeouts.
+
 
 ## Install
 

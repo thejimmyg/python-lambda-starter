@@ -26,7 +26,7 @@ def app(http):
         if http.request.method == "post":
             data = json.loads(http.request.body.decode("utf8"))
             if typeddicts.is_submitinput(data):
-                http.response.body = logic.submit(data)
+                http.response.body = logic.submit(http.context, data)
             else:
                 http.response.headers["content-type"] = "text/plain"
                 http.response.status = "400 Invalid data"

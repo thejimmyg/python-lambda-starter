@@ -4,34 +4,33 @@ import os
 
 import boto3
 
-TABLE_NAME = os.environ["TASKS_DYNAMODB_TABLE_NAME"]
-STATE_MACHINE_ARN = os.environ["TASKS_STATE_MACHINE_ARN"]
-
 stepfunctions = boto3.client(
     service_name="stepfunctions", region_name=os.environ["AWS_REGION"]
 )
 dynamodb = boto3.client(service_name="dynamodb", region_name=os.environ["AWS_REGION"])
 
 
-def begin_workflow(tasks):
+def begin_workflow(uid, tasks, handler):
     begin = datetime.datetime.now()
     begin_isoformat = begin.isoformat()
-    pk = f"workflow/{begin_isoformat}"
+    pk = f"workflow/{begin_isoformat}/{uid}"
     dynamodb.put_item(
-        TableName=TABLE_NAME,
+        TableName=os.environ["TASKS_DYNAMODB_TABLE_NAME"],
         Item={
             "pk": {"S": pk},
             "sk": {"S": "/"},
             "tasks": {"N": str(tasks)},
+            "handler": {"S": str(handler)},
             "begin": {"S": begin_isoformat},
+            "begin_uid": {"S": uid},
         },
     )
-    return begin.isoformat()
+    return f"{begin_isoformat}/{uid}"
 
 
 def get_next_task(workflow_id):
     r = dynamodb.query(
-        TableName=TABLE_NAME,
+        TableName=os.environ["TASKS_DYNAMODB_TABLE_NAME"],
         KeyConditions={
             "pk": {
                 "ComparisonOperator": "EQ",
@@ -41,21 +40,28 @@ def get_next_task(workflow_id):
         ConsistentRead=True,
         Limit=2,
     )
-    if len(r["Items"]) == 1:
+    if len(r["Items"]) == 0:
+        raise Exception(f'No such workflow "workflow/{workflow_id}"')
+    elif len(r["Items"]) == 1:
         # No tasks yet
         next_task = 1
     else:
         sk = r["Items"][1]["sk"]["S"]
         assert sk.startswith("/task/"), sk
-        next_task = int(sk.split("/")[-1]) + 1
+        end = r["Items"][1].get("end", {"S": None})["S"]
+        if end:
+            next_task = int(sk.split("/")[-1]) + 1
+        else:
+            next_task = int(sk.split("/")[-1])
     get_workflow_response = r["Items"][0]
     tasks = int(get_workflow_response["tasks"]["N"])
-    return next_task, tasks
+    handler = get_workflow_response["handler"]["S"]
+    return next_task, tasks, handler
 
 
 def progress(workflow_id):
     r = dynamodb.query(
-        TableName=TABLE_NAME,
+        TableName=os.environ["TASKS_DYNAMODB_TABLE_NAME"],
         KeyConditions={
             "pk": {
                 "ComparisonOperator": "EQ",
@@ -85,27 +91,28 @@ def progress(workflow_id):
     return header, tasks
 
 
-def begin_task(workflow_id, tasks, i):
+def begin_task(uid, workflow_id, tasks, i):
     now = datetime.datetime.now()
     print(f"workflow/{workflow_id} {i}/{tasks}")
     pk = {"S": f"workflow/{workflow_id}"}
     sk = {"S": f"/task/{tasks-i}/{i}"}
     put_task_response = dynamodb.put_item(
-        TableName=TABLE_NAME,
+        TableName=os.environ["TASKS_DYNAMODB_TABLE_NAME"],
         Item={
             "pk": pk,
             "sk": sk,
             "begin": {"S": now.isoformat()},
+            "begin_uid": {"S": uid},
         },
     )
 
 
-def end_task(workflow_id, tasks, i):
+def end_task(uid, workflow_id, tasks, i):
     now = datetime.datetime.now()
     pk = {"S": f"workflow/{workflow_id}"}
     sk = {"S": f"/task/{tasks-i}/{i}"}
     dynamodb.update_item(
-        TableName=TABLE_NAME,
+        TableName=os.environ["TASKS_DYNAMODB_TABLE_NAME"],
         Key={
             "pk": pk,
             "sk": sk,
@@ -115,13 +122,17 @@ def end_task(workflow_id, tasks, i):
                 "Value": {"S": now.isoformat()},
                 "Action": "PUT",
             },
+            "end_uid": {
+                "Value": {"S": uid},
+                "Action": "PUT",
+            },
         },
     )
 
 
-def end_workflow(workflow_id):
+def end_workflow(uid, workflow_id):
     end_workflow_response = dynamodb.update_item(
-        TableName=TABLE_NAME,
+        TableName=os.environ["TASKS_DYNAMODB_TABLE_NAME"],
         Key={
             "pk": {"S": f"workflow/{workflow_id}"},
             "sk": {"S": "/"},
@@ -130,7 +141,11 @@ def end_workflow(workflow_id):
             "end": {
                 "Value": {"S": datetime.datetime.now().isoformat()},
                 "Action": "PUT",
-            }
+            },
+            "end_uid": {
+                "Value": {"S": uid},
+                "Action": "PUT",
+            },
         },
     )
     print(end_workflow_response)
@@ -138,8 +153,8 @@ def end_workflow(workflow_id):
 
 def begin_state_machine(workflow_id):
     response = stepfunctions.start_execution(
-        stateMachineArn=STATE_MACHINE_ARN,
-        input=json.dumps({"workflow": workflow_id}),
+        stateMachineArn=os.environ["TASKS_STATE_MACHINE_ARN"],
+        input=json.dumps({"workflow_id": workflow_id}),
     )
     print(response)
     return dict(success=True)

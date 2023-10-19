@@ -23,16 +23,9 @@ def test_web_submit():
     from unittest.mock import patch
 
     with patch("app.logic.begin_workflow") as begin_workflow, patch(
-        "app.logic.end_workflow"
-    ) as end_workflow, patch("app.logic.get_next_task") as get_next_task, patch(
-        "app.logic.begin_task"
-    ) as begin_task, patch(
-        "app.logic.end_task"
-    ) as end_task, patch(
         "app.logic.begin_state_machine"
-    ) as begin_state_machine:
+    ) as begin_state_machine, patch("app.tasks.wait") as wait:
         begin_workflow.return_value = "123"
-        get_next_task.return_value = (1, 2)
 
         from adapter.http.shared import Base64, Http, Request, RespondEarly, Response
         from app.app import app
@@ -105,16 +98,9 @@ def test_api():
     from unittest.mock import patch
 
     with patch("app.logic.begin_workflow") as begin_workflow, patch(
-        "app.logic.end_workflow"
-    ) as end_workflow, patch("app.logic.get_next_task") as get_next_task, patch(
-        "app.logic.begin_task"
-    ) as begin_task, patch(
-        "app.logic.end_task"
-    ) as end_task, patch(
         "app.logic.begin_state_machine"
-    ) as begin_state_machine:
+    ) as begin_state_machine, patch("app.tasks.wait") as wait:
         begin_workflow.return_value = "123"
-        get_next_task.return_value = (1, 2)
 
         import json
 

@@ -1,7 +1,6 @@
 import os
 import time
 
-
 import app.tasks
 from driver.tasks.auto import begin_task, end_task, end_workflow, get_next_task
 

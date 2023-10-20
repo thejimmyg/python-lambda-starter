@@ -56,7 +56,7 @@ Resources:
         - AttributeName: sk
           KeyType: RANGE
       TimeToLiveSpecification:
-        AttributeName: TimeToLive
+        AttributeName: ttl
         Enabled: true
 
   TasksLambdaDynamoPolicy:

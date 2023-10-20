@@ -18,12 +18,12 @@ venv:
 
 deploy:
 	@echo "Did you mean 'make deploy-lambda'?"
-check:
+check: app/typeddicts.py
 	.venv/bin/cfn-lint deploy/stack-*.yml deploy/stack-*.template --ignore-templates deploy/stack-api-gateway.template deploy/stack-cloudfront.template deploy/stack-lambda.yml deploy/stack-tasks.yml
 	.venv/bin/cfn-lint deploy/stack-api-gateway.template deploy/stack-cloudfront.template deploy/stack-lambda.yml deploy/stack-tasks.yml -i W3002
 	.venv/bin/mypy app/*.py test/*.py --check-untyped-defs
 
-test:  app/typeddicts.py $(OBJS)
+test: app/typeddicts.py $(OBJS)
 	PYTHONPATH=$(PWD) PASSWORD=somepassword TASKS_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py
 
 format: format-python format-cfn

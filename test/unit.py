@@ -5,7 +5,7 @@ for k in os.environ:
     if k not in (
         "PASSWORD",
         "AWS_REGION",
-        "TASKS_DYNAMODB_TABLE_NAME",
+        "KVSTORE_DYNAMODB_TABLE_NAME",
         "TASKS_STATE_MACHINE_ARN",
     ):
         del os.environ[k]
@@ -22,14 +22,14 @@ def test_template_render_home():
 def test_web_submit():
     from unittest.mock import patch
 
-    with patch("app.logic.begin_workflow") as begin_workflow, patch(
-        "app.logic.begin_state_machine"
+    with patch("tasks.driver.begin_workflow") as begin_workflow, patch(
+        "tasks.driver.begin_state_machine"
     ) as begin_state_machine, patch("app.tasks.wait") as wait:
         begin_workflow.return_value = "123"
 
-        from adapter.http.shared import Base64, Http, Request, RespondEarly, Response
         from app.app import app
         from app.template import Html
+        from serve.adapter.shared import Base64, Http, Request, RespondEarly, Response
 
         http = Http(
             request=Request(
@@ -97,16 +97,16 @@ def test_types():
 def test_api():
     from unittest.mock import patch
 
-    with patch("app.logic.begin_workflow") as begin_workflow, patch(
-        "app.logic.begin_state_machine"
+    with patch("tasks.driver.begin_workflow") as begin_workflow, patch(
+        "tasks.driver.begin_state_machine"
     ) as begin_state_machine, patch("app.tasks.wait") as wait:
         begin_workflow.return_value = "123"
 
         import json
 
-        from adapter.http.shared import Base64, Http, Request, RespondEarly, Response
         from app import typeddicts
         from app.app import app
+        from serve.adapter.shared import Base64, Http, Request, RespondEarly, Response
 
         http = Http(
             request=Request(

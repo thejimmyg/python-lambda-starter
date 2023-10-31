@@ -18,13 +18,13 @@ venv:
 
 deploy:
 	@echo "Did you mean 'make deploy-lambda'?"
-check:
+check: app/typeddicts.py
 	.venv/bin/cfn-lint deploy/stack-*.yml deploy/stack-*.template --ignore-templates deploy/stack-api-gateway.template deploy/stack-cloudfront.template deploy/stack-lambda.yml deploy/stack-tasks.yml
 	.venv/bin/cfn-lint deploy/stack-api-gateway.template deploy/stack-cloudfront.template deploy/stack-lambda.yml deploy/stack-tasks.yml -i W3002
 	.venv/bin/mypy app/*.py test/*.py --check-untyped-defs
 
-test:  app/typeddicts.py $(OBJS)
-	PYTHONPATH=$(PWD) PASSWORD=somepassword TASKS_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py
+test: app/typeddicts.py $(OBJS)
+	PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py
 
 format: format-python format-cfn
 
@@ -38,14 +38,14 @@ clean:
 	rm -f app/static/*.txt app/typeddicts.py
 	rm -f deploy/deploy*.yml
 	rm -f lambda.zip tasks-lambda.zip
-	find app adapter driver -type d  -name __pycache__ -print0 | xargs -0 rm -rf
+	find app serve tasks kvstore -type d  -name __pycache__ -print0 | xargs -0 rm -rf
 
 tasks-lambda.zip: lambda.zip
 	cp lambda.zip tasks-lambda.zip
 
 lambda.zip:
 	rm -rf lambda.zip
-	zip --exclude '*/__pycache__/*' -r lambda.zip app adapter driver
+	zip --exclude '*/__pycache__/*' -r lambda.zip app tasks serve kvstore
 
 deploy-check-env-aws:
 ifndef AWS_REGION

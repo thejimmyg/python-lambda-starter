@@ -87,12 +87,12 @@ Resources:
       Architectures:
         - arm64
       Runtime: python3.11
-      Handler: adapter.http.lambda_function.lambda_handler
+      Handler: serve.adapter.lambda_function.lambda_handler
       MemorySize: 128
       Environment:
         Variables:
           PASSWORD: !Ref Password
-          TASKS_DYNAMODB_TABLE_NAME: !Ref TasksDynamodbTableName
+          KVSTORE_DYNAMODB_TABLE_NAME: !Ref TasksDynamodbTableName
           TASKS_STATE_MACHINE_ARN: !Ref TasksStateMachineArn
 
 Outputs:

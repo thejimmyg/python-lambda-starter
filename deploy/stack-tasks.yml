@@ -28,12 +28,12 @@ Resources:
       Code: ../tasks-lambda.zip
       Runtime: python3.11
       Timeout: 900
-      Handler: adapter.tasks.lambda_function.lambda_handler
+      Handler: tasks.adapter.lambda_function.lambda_handler
       Architectures:
         - arm64
       Environment:
         Variables:
-          TASKS_DYNAMODB_TABLE_NAME: !Sub '${AWS::StackName}-${TableName}'
+          KVSTORE_DYNAMODB_TABLE_NAME: !Sub '${AWS::StackName}-${TableName}'
           # How much time to make sure is still available (the DELAY_MS value gets added on top of this)
           SAFETY_MULTIPLE: 1.4
           SAFETY_DELAY_MS: 0
@@ -56,7 +56,7 @@ Resources:
         - AttributeName: sk
           KeyType: RANGE
       TimeToLiveSpecification:
-        AttributeName: TimeToLive
+        AttributeName: ttl
         Enabled: true
 
   TasksLambdaDynamoPolicy:

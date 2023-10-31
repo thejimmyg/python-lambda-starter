@@ -2,7 +2,7 @@ import os
 import time
 
 import app.tasks
-from driver.tasks.auto import begin_task, end_task, end_workflow, get_next_task
+import tasks.driver
 
 from .shared import Error
 
@@ -16,22 +16,22 @@ def lambda_handler(event, context):
     print(event, context, uid, delay_ms, safety_multiple, safety_delay_ms)
     workflow_id = event["workflow_id"]
 
-    next_task, tasks, handler = get_next_task(workflow_id)
+    next_task, num_tasks, handler = tasks.driver.get_next_task(workflow_id)
     handler_function = getattr(app.tasks, handler)
     # This algorithm will always try and run at least one task
     longest_task_ms = 0
 
-    for i in range(next_task, tasks + 1):
+    for i in range(next_task, num_tasks + 1):
         time.sleep(delay_ms / 1000.0)
 
         def handler_begin_task():
-            return begin_task(uid, workflow_id, tasks, i)
+            return tasks.driver.begin_task(uid, workflow_id, num_tasks, i)
 
         def handler_end_task():
-            return end_task(uid, workflow_id, tasks, i)
+            return tasks.driver.end_task(uid, workflow_id, num_tasks, i)
 
         now = time.time()
-        handler_function(next_task, tasks, handler_begin_task, handler_end_task)
+        handler_function(next_task, num_tasks, handler_begin_task, handler_end_task)
         elapsed_ms = (time.time() - now) * 1000
         if elapsed_ms > longest_task_ms:
             longest_task_ms = elapsed_ms
@@ -42,7 +42,7 @@ def lambda_handler(event, context):
                 f"Out of time to run the next task. Need {needed_ms} ms but only have {remaining_ms}"
             )
 
-    end_workflow(uid, workflow_id)
+    tasks.driver.end_workflow(uid, workflow_id)
     # This becomes the output of the state machine
     event["success"] = True
     return event

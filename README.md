@@ -24,9 +24,9 @@ folder. In each sub-folder the incoming port is in a file called `shared.py`
 and the incoming adapters are in the other files.
 
 *Outgoing* ports and adapters are called *drivers* and are in the `drivers`
-folder. In each sub-folder the port is in `auto.py` and the implementation in the other files.
+folder. In each sub-folder the port is in `__init__.py` and the implementation in the other files.
 
-Code that relies on a driver should import its implementation from `auto.py`.
+Code that relies on a driver should import its implementation from `__init__.py`.
 Within that file, the correct adapter will we chosen based on environment
 variables.
 

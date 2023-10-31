@@ -14,7 +14,7 @@ def put(store, pk, data, sk="", ttl=None):
     }
     if ttl:
         item["ttl"] = {"N": int(ttl)}
-    item = data_to_dynamo_data(data)
+    item.update(_data_to_dynamo_format(data))
     dynamodb.put_item(
         TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
         Item=item,
@@ -24,7 +24,7 @@ def put(store, pk, data, sk="", ttl=None):
 def update(store, pk, data, sk="", ttl=None):
     assert "/" not in store
     actual_pk = f"{store}/{pk}"
-    attribute_updates = data_to_dynamo_data(data, mode="update")
+    attribute_updates = _data_to_dynamo_update_format(data)
     if ttl:
         attribute_updates["ttl"] = {
             "Value": {"N": int(ttl)},
@@ -76,35 +76,53 @@ def iterate(store, pk, sk_start="", limit=2, consistent=False):
     """
     assert "/" not in store
     actual_pk = f"{store}/{pk}"
-    key_conditions = {
-        "pk": {
-            "ComparisonOperator": "EQ",
-            "AttributeValueList": [{"S": actual_pk}],
-        }
-    }
-    if sk:
-        key_conditions["sk"] = {
-            "ComparisonOperator": "GTE",
-            "AttributeValueList": [{"S": "/" + sk_start}],
-        }
-    r = dynamodb.query(
-        TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
-        ConsistentRead=consistent,
-        Limit=limit,
-        KeyConditions=key_conditions,
-    )
+    if sk_start:
+        r = dynamodb.query(
+            TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
+            ConsistentRead=consistent,
+            Limit=limit,
+            KeyConditionExpression="(#n0 = :v0) AND (#n1 >= :v1)",
+            ExpressionAttributeNames={
+                "#n0": "pk",
+                "#n1": "sk",
+            },
+            ExpressionAttributeValues={
+                # WARNING: The values do not seem to be type checked currently.
+                ":v0": {"S": actual_pk},
+                ":v1": {"S": "/" + sk_start},
+            },
+        )
+    else:
+        r = dynamodb.query(
+            TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
+            ConsistentRead=consistent,
+            Limit=limit,
+            KeyConditionExpression="(#n0 = :v0)",
+            ExpressionAttributeNames={
+                "#n0": "pk",
+            },
+            ExpressionAttributeValues={
+                # WARNING: The value does not seem to be type checked currently.
+                ":v0": {"S": actual_pk},
+            },
+        )
     sent = 0
     for item in r["Items"]:
-        data = data_to_dynamo_data(item)
         parts = item["pk"]["S"].split("/")
         store = parts[0]
         pk = "/".join(parts[1:])
         sk = item["sk"]["S"]
         assert sk[0] == "/"
         sk = sk[1:]
+        del item["pk"]
+        del item["sk"]
+        item.get("ttl")
+        if "ttl" in item:
+            del item["ttl"]
+        data = _data_from_dynamo_format(item)
         yield sk, data
         sent += 1
-    r["LastEvaluateKey"]
+    # r["LastEvaluatedKey"]
     # while (not limit or sent < limit) and last_key:
     #     r = dynamodb.query(
     #         TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
@@ -113,11 +131,10 @@ def iterate(store, pk, sk_start="", limit=2, consistent=False):
     #         KeyConditions=key_conditions,
     #         ExclusiveStartKey=last_key
     #     )
-    #     last_key = r['LastEvaluateKey']
+    #     last_key = r['LastEvaluatedKey']
 
 
-def data_to_dynamo_data(data, mode="normal"):
-    assert mode in ["update", "normal"]
+def _data_to_dynamo_update_format(data):
     assert "pk" not in data
     assert "sk" not in data
     assert "ttl" not in data
@@ -125,18 +142,52 @@ def data_to_dynamo_data(data, mode="normal"):
     for k in data:
         assert isinstance(k, str)
         if isinstance(data[k], int) or isinstance(data[k], float):
-            value = {"N": data[k]}
+            value = {"N": str(data[k])}
         elif isinstance(data[k], str):
             value = {"S": data[k]}
         else:
             raise Exception(
-                f"Value '{data[k]}' for key '{k}' is not a string or number"
+                f"Value {repr(data[k])} for key '{k}' is not a string or number"
             )
-        if mode == "update":
-            result[k] = {
-                "Value": value,
-                "Action": "PUT",
-            }
-        elif mode == "normal":
-            result[k] = value
+        result[k] = {
+            "Value": value,
+            "Action": "PUT",
+        }
+    return result
+
+
+def _data_to_dynamo_format(data):
+    assert "pk" not in data
+    assert "sk" not in data
+    assert "ttl" not in data
+    result = {}
+    for k in data:
+        assert isinstance(k, str)
+        if isinstance(data[k], int) or isinstance(data[k], float):
+            value = {"N": str(data[k])}
+        elif isinstance(data[k], str):
+            value = {"S": data[k]}
+        else:
+            raise Exception(
+                f"Value {repr(data[k])} for key '{k}' is not a string or number"
+            )
+        result[k] = value
+    return result
+
+
+def _data_from_dynamo_format(data):
+    assert "pk" not in data
+    assert "sk" not in data
+    assert "ttl" not in data
+    result = {}
+    for k in data:
+        assert isinstance(k, str)
+        if "N" in data[k]:
+            result[k] = float(data[k]["N"])
+        elif "S" in data[k]:
+            result[k] = data[k]["S"]
+        else:
+            raise Exception(
+                f"Value {repr(data[k])} for key '{k}' cannot be converted to a string or number"
+            )
     return result

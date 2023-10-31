@@ -24,7 +24,7 @@ check: app/typeddicts.py
 	.venv/bin/mypy app/*.py test/*.py --check-untyped-defs
 
 test: app/typeddicts.py $(OBJS)
-	PYTHONPATH=$(PWD) PASSWORD=somepassword TASKS_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py
+	PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py
 
 format: format-python format-cfn
 
@@ -38,14 +38,14 @@ clean:
 	rm -f app/static/*.txt app/typeddicts.py
 	rm -f deploy/deploy*.yml
 	rm -f lambda.zip tasks-lambda.zip
-	find app adapter driver -type d  -name __pycache__ -print0 | xargs -0 rm -rf
+	find app serve tasks kvstore -type d  -name __pycache__ -print0 | xargs -0 rm -rf
 
 tasks-lambda.zip: lambda.zip
 	cp lambda.zip tasks-lambda.zip
 
 lambda.zip:
 	rm -rf lambda.zip
-	zip --exclude '*/__pycache__/*' -r lambda.zip app adapter driver
+	zip --exclude '*/__pycache__/*' -r lambda.zip app tasks serve kvstore
 
 deploy-check-env-aws:
 ifndef AWS_REGION

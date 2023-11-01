@@ -12,7 +12,7 @@ store = "tasks"
 import kvstore.driver
 
 
-def begin_workflow(uid, tasks, handler):
+def begin_workflow(uid, num_tasks, handler):
     begin = datetime.datetime.now()
     begin_isoformat = begin.isoformat()
     pk = f"{begin_isoformat}/{uid}"
@@ -20,7 +20,7 @@ def begin_workflow(uid, tasks, handler):
         store,
         pk,
         {
-            "tasks": int(tasks),
+            "num_tasks": int(num_tasks),
             "handler": str(handler),
             "begin": begin_isoformat,
             "begin_uid": str(uid),
@@ -30,39 +30,42 @@ def begin_workflow(uid, tasks, handler):
 
 
 def get_next_task(workflow_id):
-    r = list(kvstore.driver.iterate(store, workflow_id, limit=2, consistent=True))
-    if len(r) == 0:
-        raise Exception(f'No such workflow "workflow/{workflow_id}"')
-    elif len(r) == 1:
+    results, maybe_more_sk = list(
+        kvstore.driver.iterate(store, workflow_id, limit=2, consistent=True)
+    )
+    if len(results) == 0:
+        raise Exception(f'No such workflow "{workflow_id}"')
+    elif len(results) == 1:
         # No tasks yet
         next_task = 1
     else:
-        sk, data = r[1]
+        sk, data, ttl = results[1]
         assert sk.startswith("/task/"), sk
         end = data.get("end")
         if end:
             next_task = int(sk.split("/")[-1]) + 1
         else:
             next_task = int(sk.split("/")[-1])
-    get_workflow_response = r[0][1]
-    tasks: float = get_workflow_response["tasks"]
+    get_workflow_response = results[0][1]
+    num_tasks: float = get_workflow_response["num_tasks"]
     handler: str = get_workflow_response["handler"]
-    return int(next_task), int(tasks), handler
+    return int(next_task), int(num_tasks), handler
 
 
 def progress(workflow_id):
-    r = list(kvstore.driver.iterate(store, workflow_id))
+    results, maybe_more_sk = list(kvstore.driver.iterate(store, workflow_id))
+    workflow = results[0]
     header = dict(
         workflow_id=workflow_id,
-        tasks=int(r[0][1]["tasks"]),
-        begin=r[0][1]["begin"],
-        end=r[0][1].get("end"),
+        num_tasks=int(workflow[1]["num_tasks"]),
+        begin=workflow[1]["begin"],
+        end=workflow[1].get("end"),
     )
-    tasks = []
-    for sk, data in r[1:]:
+    task_list = []
+    for sk, data, ttl in results[1:]:
         assert sk.startswith("/task/"), sk
         _, _, remaining, task = sk.split("/")
-        tasks.append(
+        task_list.append(
             dict(
                 task=int(task),
                 remaining=int(remaining),
@@ -70,12 +73,12 @@ def progress(workflow_id):
                 end=data.get("end"),
             )
         )
-    return header, tasks
+    return header, task_list
 
 
-def begin_task(uid, workflow_id, tasks, i):
+def begin_task(uid, workflow_id, num_tasks, i):
     now = datetime.datetime.now()
-    sk = f"/task/{tasks-i}/{i}"
+    sk = f"/task/{num_tasks-i}/{i}"
     put_task_response = kvstore.driver.put(
         store,
         workflow_id,
@@ -87,9 +90,9 @@ def begin_task(uid, workflow_id, tasks, i):
     )
 
 
-def end_task(uid, workflow_id, tasks, i):
+def end_task(uid, workflow_id, num_tasks, i):
     now = datetime.datetime.now()
-    sk = f"/task/{tasks-i}/{i}"
+    sk = f"/task/{num_tasks-i}/{i}"
     end_task_response = kvstore.driver.update(
         store,
         workflow_id,

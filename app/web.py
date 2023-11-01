@@ -89,5 +89,5 @@ import tasks.driver
 
 def progress(http):
     q = urllib.parse.parse_qs(http.request.query)
-    header, tasks = tasks.driver.progress(q["workflow_id"][0])
-    http.response.body = dict(header=header, tasks=tasks)
+    header, task_list = tasks.driver.progress(q["workflow_id"][0])
+    http.response.body = dict(header=header, task_list=task_list)

@@ -10,7 +10,7 @@ def submit(context: dict, input: SubmitInput) -> ApiResponse:
         raise ValueError("Invalid password")
     else:
         workflow_id = tasks.driver.begin_workflow(
-            uid=context["uid"], tasks=2, handler="count"
+            uid=context["uid"], num_tasks=2, handler="count"
         )
         tasks.driver.begin_state_machine(workflow_id)
         return dict(success=True)

@@ -5,12 +5,13 @@ import boto3
 dynamodb = boto3.client(service_name="dynamodb", region_name=os.environ["AWS_REGION"])
 
 
-def put(store, pk, data, sk="", ttl=None):
+def put(store, pk, data, sk="/", ttl=None):
     assert "/" not in store
+    assert sk[0] == "/"
     actual_pk = f"{store}/{pk}"
     item = {
         "pk": {"S": actual_pk},
-        "sk": {"S": "/" + sk},
+        "sk": {"S": sk},
     }
     if ttl:
         item["ttl"] = {"N": int(ttl)}
@@ -21,8 +22,9 @@ def put(store, pk, data, sk="", ttl=None):
     )
 
 
-def update(store, pk, data, sk="", ttl=None):
+def update(store, pk, data, sk="/", ttl=None):
     assert "/" not in store
+    assert sk[0] == "/"
     actual_pk = f"{store}/{pk}"
     attribute_updates = _data_to_dynamo_update_format(data)
     if ttl:
@@ -34,25 +36,26 @@ def update(store, pk, data, sk="", ttl=None):
         TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
         Key={
             "pk": {"S": actual_pk},
-            "sk": {"S": "/" + sk},
+            "sk": {"S": sk},
         },
         AttributeUpdates=attribute_updates,
     )
 
 
-def delete(store, pk, sk=""):
+def delete(store, pk, sk="/"):
     assert "/" not in store
+    assert sk[0] == "/"
     actual_pk = f"{store}/{pk}"
     dynamodb.delete_item(
         TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
         Key={
             "pk": {"S": actual_pk},
-            "sk": {"S": "/" + sk},
+            "sk": {"S": sk},
         },
     )
 
 
-def iterate(store, pk, sk_start="", limit=2, consistent=False):
+def iterate(store, pk, sk_start="/", limit=2, consistent=False):
     """
         https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.Pagination.html
 
@@ -75,6 +78,7 @@ def iterate(store, pk, sk_start="", limit=2, consistent=False):
     In other words, the LastEvaluatedKey from a Query response should be used as the ExclusiveStartKey for the next Query request. If there is not a LastEvaluatedKey element in a Query response, then you have retrieved the final page of results. If LastEvaluatedKey is not empty, it does not necessarily mean that there is more data in the result set. The only way to know when you have reached the end
     """
     assert "/" not in store
+    assert sk_start[0] == "/"
     actual_pk = f"{store}/{pk}"
     if sk_start:
         r = dynamodb.query(
@@ -89,7 +93,7 @@ def iterate(store, pk, sk_start="", limit=2, consistent=False):
             ExpressionAttributeValues={
                 # WARNING: The values do not seem to be type checked currently.
                 ":v0": {"S": actual_pk},
-                ":v1": {"S": "/" + sk_start},
+                ":v1": {"S": sk_start},
             },
         )
     else:
@@ -106,7 +110,7 @@ def iterate(store, pk, sk_start="", limit=2, consistent=False):
                 ":v0": {"S": actual_pk},
             },
         )
-    sent = 0
+    results = []
     for item in r["Items"]:
         parts = item["pk"]["S"].split("/")
         store = parts[0]
@@ -116,22 +120,15 @@ def iterate(store, pk, sk_start="", limit=2, consistent=False):
         sk = sk[1:]
         del item["pk"]
         del item["sk"]
-        item.get("ttl")
+        ttl = item.get("ttl")
         if "ttl" in item:
             del item["ttl"]
         data = _data_from_dynamo_format(item)
-        yield sk, data
-        sent += 1
-    # r["LastEvaluatedKey"]
-    # while (not limit or sent < limit) and last_key:
-    #     r = dynamodb.query(
-    #         TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
-    #         ConsistentRead=consistent,
-    #         Limit=limit,
-    #         KeyConditions=key_conditions,
-    #         ExclusiveStartKey=last_key
-    #     )
-    #     last_key = r['LastEvaluatedKey']
+        results.append((sk, data, ttl))
+    if len(results) == limit:
+        return results, None
+    else:
+        return results, r.get("LastEvaluatedKey")
 
 
 def _data_to_dynamo_update_format(data):

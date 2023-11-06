@@ -10,8 +10,8 @@ app/static/%.txt: static/%
 	mkdir -p app/static
 	.venv/bin/python3 bin/encode_static.py $< $@
 
-app/typeddicts.py: bin/gen_typeddicts.py
-	.venv/bin/python3 $< > $@
+app/typeddicts.py: bin/gen_typeddicts.py openapi-app.json
+	.venv/bin/python3 bin/gen_typeddicts.py openapi-app.json > $@
 
 venv:
 	python3 -m venv .venv && .venv/bin/pip install isort autoflake black mypy cfn-lint boto3 boto3-stubs[stepfunctions] boto3-stubs[dynamodb]
@@ -25,6 +25,7 @@ check: app/typeddicts.py
 
 test: app/typeddicts.py $(OBJS)
 	PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py
+	PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/openapi.py
 
 format: format-python format-cfn
 

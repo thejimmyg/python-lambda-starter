@@ -1,6 +1,8 @@
-import json
+from . import logic
+from . import web
+from .typeddicts import make_app_handler
 
-from . import logic, typeddicts, web
+app_handler = make_app_handler("/api", submit_input=logic.submit_input)
 
 
 def app(http):
@@ -23,18 +25,7 @@ def app(http):
     elif http.request.path.startswith("/progress"):
         web.progress(http)
     elif http.request.path.startswith("/api"):
-        if http.request.method == "post":
-            data = json.loads(http.request.body.decode("utf8"))
-            if typeddicts.is_submitinput(data):
-                http.response.body = logic.submit(http.context, data)
-            else:
-                http.response.headers["content-type"] = "text/plain"
-                http.response.status = "400 Invalid data"
-                http.response.body = b"Invalid data"
-        else:
-            http.response.headers["content-type"] = "text/plain"
-            http.response.status = "405 Bad Method"
-            http.response.body = b"Bad Method"
+        app_handler(http)
     else:
         http.response.headers["content-type"] = "text/plain"
         http.response.status = "404 Not Found"

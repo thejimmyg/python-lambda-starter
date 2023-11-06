@@ -77,12 +77,12 @@ def test_web_submit():
 
 
 def test_types():
-    from app.typeddicts import is_apiresponse
+    from app.typeddicts import is_ApiResponse
 
     # Invalid case
     try:
         r: dict = {}
-        assert is_apiresponse(r)
+        assert is_ApiResponse(r)
     except AssertionError:
         pass
     else:
@@ -90,7 +90,7 @@ def test_types():
         raise Exception("Failed to raise assertion")
     # Valid case
     s: dict = {"success": True}
-    assert is_apiresponse(s)
+    assert is_ApiResponse(s)
     assert s["success"]
 
 
@@ -110,7 +110,7 @@ def test_api():
 
         http = Http(
             request=Request(
-                path="/api",
+                path="/api/submit_input",
                 query="",
                 headers={},
                 method="post",
@@ -131,7 +131,7 @@ def test_api():
         app(http)
         assert (
             isinstance(http.response.body, dict)
-            and typeddicts.is_apiresponse(http.response.body)
+            and typeddicts.is_ApiResponse(http.response.body)
             and http.response.body == {"success": True}
         ), http.response.body
 

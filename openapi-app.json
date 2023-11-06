@@ -1,0 +1,55 @@
+{
+  "openapi": "3.0.1",
+  "paths": {
+    "/submit_input": {
+      "post": {
+	"operationId": "submit_input",
+	"requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitInput"
+	      }
+	    }
+	  }
+	},
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SubmitInput": {
+        "type": "object",
+        "properties": {
+          "password": {
+              "type": "string",
+              "description": "The password to authorize this request."
+          },
+          "id": {"type": "integer", "description": "The ID of the object to submit"}
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "required": ["success"],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the request succeded or not."
+          }
+        }
+      }
+    }
+  }
+}

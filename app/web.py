@@ -69,8 +69,8 @@ def handle_static(http):
 def submit(http):
     if http.request.method == "post":
         q = urllib.parse.parse_qs(http.request.body.decode("utf8"))
-        result = logic.submit(
-            http.context, {"password": q["password"][0], "id": int(q["id"][0])}
+        result = logic.submit_input(
+            {"password": q["password"][0], "id": int(q["id"][0])}
         )
         assert result["success"]
         body = Html("<p>Submission in progress ...</p>\n")

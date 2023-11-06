@@ -17,7 +17,7 @@ class Base64:
 class Request:
     path: str
     query: None | str
-    headers: dict
+    headers: dict[str, str]
     method: str
     body: None | bytes
 
@@ -29,7 +29,7 @@ class RespondEarly(Exception):
 @dataclasses.dataclass
 class Response:
     status: str
-    headers: dict
+    headers: dict[str, str]
     body: None | bytes | str | Renderable | dict | Base64
     respond_early: type[RespondEarly]
     Base64: type[Base64]

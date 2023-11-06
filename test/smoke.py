@@ -101,7 +101,7 @@ def test_api(lambda_url):
     import urllib.request
 
     data = json.dumps({"password": os.environ["PASSWORD"], "id": 123}).encode("utf8")
-    req = urllib.request.Request(lambda_url + "/api", data=data)
+    req = urllib.request.Request(lambda_url + "/api/submit_input", data=data)
     with urllib.request.urlopen(req) as response:
         assert (
             "Content-Type",
@@ -114,7 +114,7 @@ def test_api(lambda_url):
 
     # id is a string this time, not an integer
     data = json.dumps({"password": os.environ["PASSWORD"], "id": "123"}).encode("utf8")
-    req = urllib.request.Request(lambda_url + "/api", data=data)
+    req = urllib.request.Request(lambda_url + "/api/submit_input", data=data)
     try:
         with urllib.request.urlopen(req) as response:
             raise Exception(

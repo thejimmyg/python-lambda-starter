@@ -9,8 +9,8 @@ def test_submit_input() -> None:
 
 def main() -> None:
     import subprocess
-    import time
     import sys
+    import time
 
     process = subprocess.Popen([sys.executable, "test/openapi-server.py"])
     time.sleep(1)

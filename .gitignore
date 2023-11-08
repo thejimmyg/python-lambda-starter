@@ -9,3 +9,4 @@ deploy/*.env
 deploy/deploy-*.yml
 lambda.zip
 tasks-lambda.zip
+kvstore/driver/driver_key_value_store/

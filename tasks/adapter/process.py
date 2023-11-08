@@ -1,20 +1,18 @@
 import os
 import time
+import uuid
 
+# XXX I'm not happy with this part of the design.
 import app.tasks
 import tasks.driver
 
-from .shared import Error
 
-
-def lambda_handler(event, context):
+def run(workflow_id):
     # Here the event is whatever you pass as the JSON when executing the stepfunctions state machine
-    uid = context.aws_request_id
+    uid = str(uuid.uuid4())
     delay_ms = int((os.environ.get("DELAY_MS", "0")))
-    safety_multiple = float(os.environ.get("SAFETY_MULTIPLE", "1.4"))
-    safety_delay_ms = int((os.environ.get("SAFETY_DELAY_MS", "0")))
-    print(event, context, uid, delay_ms, safety_multiple, safety_delay_ms)
-    workflow_id = event["workflow_id"]
+
+    print(workflow_id, uid, delay_ms)
 
     next_task, num_tasks, handler = tasks.driver.get_next_task(workflow_id)
     handler_function = getattr(app.tasks, handler)
@@ -32,17 +30,16 @@ def lambda_handler(event, context):
 
         now = time.time()
         handler_function(next_task, num_tasks, handler_begin_task, handler_end_task)
-        elapsed_ms = (time.time() - now) * 1000
+        elapsed_ms: float = (time.time() - now) * 1000
         if elapsed_ms > longest_task_ms:
             longest_task_ms = elapsed_ms
-        remaining_ms = context.get_remaining_time_in_millis()
-        needed_ms = (longest_task_ms * safety_multiple) + safety_delay_ms + delay_ms
-        if remaining_ms < needed_ms:
-            raise Error(
-                f"Out of time to run the next task. Need {needed_ms} ms but only have {remaining_ms}"
-            )
 
+    print("Longest task:", longest_task_ms)
     tasks.driver.end_workflow(uid, workflow_id)
-    # This becomes the output of the state machine
-    event["success"] = True
-    return event
+    return True
+
+
+if __name__ == "__main__":
+    import sys
+
+    run(sys.argv[1])

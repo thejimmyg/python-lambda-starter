@@ -1,8 +1,7 @@
-from . import logic
-from . import web
+from . import operation, web
 from .typeddicts import make_app_handler
 
-app_handler = make_app_handler("/api", submit_input=logic.submit_input)
+app_handler = make_app_handler("/api", submit_input=operation.submit_input)
 
 
 def app(http):

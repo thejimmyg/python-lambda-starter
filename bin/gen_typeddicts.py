@@ -270,62 +270,82 @@ def print_handler(prefix, openapi):
     print(
         "        assert http.request.path.startswith(base_path), (base_path, http.request.path)"
     )
+    print(
+        '        http.response.headers["content-type"] = "application/json; charset=utf-8"'
+    )
     print("        method = http.request.method.lower()")
     print("        openapi_path = http.request.path[len(base_path):]")
-    # print('    query = http.request.query')
-    # print('    body = http.request.body')
 
-    first = True
+    operations_by_method: dict[str, Any] = {}
     for path in openapi["paths"]:
         for method in openapi["paths"][path]:
+            if method not in operations_by_method:
+                operations_by_method[method] = []
+            operations_by_method[method].append((path, openapi["paths"][path][method]))
+    for method in operations_by_method:
+        print(f"        if method == '{method.lower()}':")
+        for path, operation in operations_by_method[method]:
             path_param_strings = [
                 "'" + p["name"] + "'"
-                for p in openapi["paths"][path][method].get("parameters", [])
+                for p in operation.get("parameters", [])
+                if p["in"] == "path"
+            ]
+            param_args = [
+                p["name"]
+                + f'={operation["operationId"]}_params.get("'
+                + p["name"]
+                + '")'
+                for p in operation.get("parameters", [])
                 if p["in"] == "path"
             ]
             if path_param_strings:
                 print(
-                    f"        {first and 'if' or 'elif'} method == '{method.lower()}' "
-                    + f'and path_matches(openapi_path, "{path}", ['
+                    f'            {operation["operationId"]}_params = path_matches(openapi_path, "{path}", ['
                     + ", ".join(path_param_strings)
-                    + "]):"
+                    + "])"
                 )
+                print(f'            if {operation["operationId"]}_params is not None:')
             else:
-                print(
-                    f"        {first and 'if' or 'elif'} method == '{method.lower()}' "
-                    + f'and openapi_path == "{path}":'
-                )
+                print(f"            if openapi_path == '{path}':")
             print(
-                f"            print('We are in the {openapi['paths'][path][method]['operationId']} handler.')"
+                f"                print('We are in the {operation['operationId']} handler.')"
             )
-            first = False
-
-            if "requestBody" in openapi["paths"][path][method]:
-                print(f"            try:")
+            if "requestBody" in operation:
+                print(f"                try:")
                 print(
-                    f'                body = json.loads( http.request.body.decode("utf8"))'
+                    f'                    body = json.loads( http.request.body.decode("utf8"))'
                 )
-                print(f"                assert is_SubmitInput(body), body")
-                print(f"            except Exception as e:")
-                print(f"                print(e)")
+                print(f"                    assert is_SubmitInput(body), body")
+                print(f"                except Exception as e:")
+                print(f"                    print(e)")
                 print(
-                    f'                http.response.headers["content-type"] = "text/plain"'
+                    f'                    http.response.headers["content-type"] = "text/plain"'
                 )
-                print(f'                http.response.status = "400 Invalid data"')
-                print(f'                http.response.body = b"Invalid data"')
-                print(f"            else:")
-                print(
-                    f'                http.response.body = {openapi["paths"][path][method]["operationId"]}(body)'
-                )
+                print(f'                    http.response.status = "400 Invalid data"')
+                print(f'                    http.response.body = b"Invalid data"')
+                print(f"                else:")
+                if path_param_strings:
+                    print(
+                        f'                    http.response.body = {operation["operationId"]}(body, {", ".join(param_args)})'
+                    )
+                else:
+                    print(
+                        f'                    http.response.body = {operation["operationId"]}(body)'
+                    )
             else:
-                print(
-                    f'            http.response.body = {openapi["paths"][path][method]["operationId"]}()'
-                )
-    print("        else:")
-    print("            http.response.status = '404 Not Found'")
-    print("            http.response.body = 'Not Found'")
+                if path_param_strings:
+                    print(
+                        f'                http.response.body = {operation["operationId"]}({", ".join(param_args)})'
+                    )
+                else:
+                    print(
+                        f'                http.response.body = {operation["operationId"]}()'
+                    )
+            print(f"                return")
+    print("        http.response.status = '404 Not Found'")
+    print("        http.response.body = 'Not Found'")
     print(
-        "            http.response.headers = {'Content-Type': 'text/plain; charset=UTF-8'}"
+        "        http.response.headers = {'content-type': 'text/plain; charset=UTF-8'}"
     )
     print(f"    return {prefix}_handler")
 
@@ -486,18 +506,18 @@ def main(prefix, filename):
         print("        return False")
 
     for operation in operations:
-        args: list[tuple[int, str]] = []
+        args: list[tuple[int, int, str]] = []
         query = []
         headers = []
         url_replace_lines = [f"    url = base_url + '{operation['path']}'"]
-        for parameter in operation["parameters"]:
-            if parameter.get("in") in ["path", "query"]:
-                arg = f"{parameter['name']}: {jsonschema_types_to_python_types[parameter['schema']['type']]}"
+        for i, parameter in enumerate(operation["parameters"]):
+            if parameter.get("in") in ["path", "query", "header"]:
+                arg = f"{parameter['name'].replace('-', '_')}: {jsonschema_types_to_python_types[parameter['schema']['type']]}"
                 if parameter.get("required") is not True:
                     arg += "|None=None"
-                    args.append((1, arg))
+                    args.append((1, i, arg))
                 else:
-                    args.append((0, arg))
+                    args.append((0, i, arg))
                 if parameter.get("in") == "path":
                     url_replace_lines.append(
                         "    url = url.replace('{"
@@ -506,7 +526,7 @@ def main(prefix, filename):
                         + parameter["name"]
                         + "))"
                     )
-                else:
+                elif parameter.get("in") == "query":
                     if parameter.get("required") is True:
                         query.append(
                             f'    query["{parameter["name"]}"] = str({parameter["name"]})'
@@ -516,28 +536,14 @@ def main(prefix, filename):
                         query.append(
                             f'        query["{parameter["name"]}"] = str({parameter["name"]})'
                         )
-            elif parameter.get("in") in ["header"]:
-                assert parameter["name"].lower() != "content-type"
-                headers.append((parameter["name"], parameter.get("requried", False)))
-
-        if headers:
-            print()
-            print()
-            print(
-                f"Headers_{prefix}_{operation['operationId']} = TypedDict('Headers_{prefix}_{operation['operationId']}', "
-                + "{"
-            )
-            for name, required in headers:
-                if required:
-                    print(f"    '{name}': str")
                 else:
-                    print(f"    '{name}': NotRequired[str]")
-            print("})")
+                    assert parameter["name"].lower() != "content-type"
+                    headers.append(
+                        (parameter["name"], parameter.get("requried", False))
+                    )
 
-        arg_strs: list[str] = [arg[1] for arg in sorted(args)]
+        arg_strs: list[str] = [arg[2] for arg in sorted(args)]
         fn = f"def {prefix}_{operation['operationId']}(base_url: str"
-        if headers:
-            fn += f", header_params: Headers_{prefix}_{operation['operationId']}"
         if operation.get("requestBody"):
             fn += f", request_data: {operation['requestBody']['content']['application/json']['schema']['$ref'][len('#/components/schemas/'):]}"
         if args:
@@ -550,14 +556,14 @@ def main(prefix, filename):
                 print("\n".join(query))
                 print("    url += '?' + urlencode(query)")
 
-            print("    headers={'Content-Type': 'application/json' }")
+            print("    headers={'content-type': 'application/json' }")
             if headers:
                 for name, required in headers:
                     if required:
-                        print(f"    headers['{name}'] = header_params['{name}']")
+                        print(f"    headers['{name}'] = {name.replace('-', '_')}")
                     else:
-                        print(f"    if '{name}' in header_params:")
-                        print(f"        headers['{name}'] = header_params['{name}']")
+                        print(f"    if  {name.replace('-', '_')}:")
+                        print(f"        headers['{name}'] = {name.replace('-', '_')}")
 
             if operation.get("requestBody"):
                 print(
@@ -611,6 +617,32 @@ def main(prefix, filename):
                 print(f"            result.append(item)")
                 # print(f'        TYPE_CHECKING and reveal_type(result)')
                 print(f"        return result")
+
+        # Now generate a sample handler
+        print()
+        print()
+
+        fn = f"def example_handler_{prefix}_{operation['operationId']}("
+        if operation.get("requestBody"):
+            fn += f"request_data: {operation['requestBody']['content']['application/json']['schema']['$ref'][len('#/components/schemas/'):]}, "
+        if args:
+            fn += (", ".join(arg_strs)) + ", "
+        fn = fn[:-2]
+        if "$ref" in schema:
+            t = schema["$ref"][len("#/components/schemas/") :]
+            print(fn + f") -> {t}:")
+            print(f"    return generate_example_{t}()")
+        else:
+            type_ = schema["type"]
+            assert type_ in ["array"]
+            if type_ == "array":
+                if "$ref" in schema["items"]:
+                    t = schema["items"]["$ref"][len("#/components/schemas/") :]
+                else:
+                    t = jsonschema_types_to_python_types[schema["items"]["type"]]
+                print(fn + f") -> list[{t}] :")
+                print(f"    return [generate_example_{t}()]")
+
     for prefix, openapi in openapis.items():
         print_handler(prefix, openapi)
 
@@ -625,11 +657,12 @@ if __name__ == "__main__":
     print()
     print()
     print(
-        "def path_matches(http_path: str, openapi_path: str, path_params: list[str]) -> bool:"
+        "def path_matches(http_path: str, openapi_path: str, path_params: list[str]) -> dict[str,str] | None:"
     )
+    print("    params: dict[str, str] = {}")
     print("    if openapi_path.count('/') != http_path.count('/'):")
     print("        # print('Different counts:', openapi_path, http_path)")
-    print("        return False")
+    print("        return None")
     print("    path_params_left = path_params[:]")
     print("    http_path_parts = http_path.split('/')")
     print("    openapi_path_parts = openapi_path.split('/')")
@@ -638,13 +671,15 @@ if __name__ == "__main__":
     print("        if part.startswith('{') and part.endswith('}'):")
     print("            part = part[1:-1]")
     print("            if part in path_params:")
+    # XXX What if two path values have different values? Poorly designed API?
+    print("                params[part] = http_path_parts[i]")
     print("                http_path_parts[i] = '{' + part + '}'")
     print("            if part in path_params_left:")
     print("                path_params_left.pop(path_params_left.index(part))")
     print("    # print(openapi_path_parts, http_path_parts, path_params_left)")
     print("    if not path_params_left and http_path_parts == openapi_path_parts:")
-    print("        return True")
-    print("    return False")
+    print("        return params")
+    print("    return None")
 
     for filename in sys.argv[1:]:
         prefix = filename.replace(".json", "").replace("openapi-", "")

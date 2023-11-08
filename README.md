@@ -99,6 +99,18 @@ make test
 ```
 
 
+## Local
+
+```sh
+PASSWORD=123 make serve
+```
+
+```sh
+PASSWORD=123 make smoke-local
+```
+
+Then visit [http://localhost:8000](http://localhost:8000).
+
 ## Deploy
 
 Follow [Deploy](deploy/README.md) for the pre-requisites.

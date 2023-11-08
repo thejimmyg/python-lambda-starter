@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 import boto3
 
@@ -22,7 +23,7 @@ def put(store, pk, data, sk="/", ttl=None):
     )
 
 
-def update(store, pk, data, sk="/", ttl=None):
+def patch(store, pk, data, sk="/", ttl=None):
     assert "/" not in store
     assert sk[0] == "/"
     actual_pk = f"{store}/{pk}"
@@ -43,6 +44,7 @@ def update(store, pk, data, sk="/", ttl=None):
 
 
 def delete(store, pk, sk="/"):
+    raise Exception("Not tested yet")
     assert "/" not in store
     assert sk[0] == "/"
     actual_pk = f"{store}/{pk}"
@@ -55,7 +57,9 @@ def delete(store, pk, sk="/"):
     )
 
 
-def iterate(store, pk, sk_start="/", limit=2, consistent=False):
+def iterate(
+    store, pk, sk_start="/", limit=None, consistent=False
+) -> tuple[Any, str | None]:
     """
         https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.Pagination.html
 
@@ -128,7 +132,10 @@ def iterate(store, pk, sk_start="/", limit=2, consistent=False):
     if len(results) == limit:
         return results, None
     else:
-        return results, r.get("LastEvaluatedKey")
+        return (
+            results,
+            r.get("LastEvaluatedKey") and str(r.get("LastEvaluatedKey")) or None,
+        )
 
 
 def _data_to_dynamo_update_format(data):

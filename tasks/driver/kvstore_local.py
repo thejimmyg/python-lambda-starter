@@ -1,12 +1,5 @@
 import datetime
-import json
-import os
 
-import boto3
-
-stepfunctions = boto3.client(
-    service_name="stepfunctions", region_name=os.environ["AWS_REGION"]
-)
 store = "tasks"
 
 import kvstore.driver
@@ -93,7 +86,7 @@ def begin_task(uid, workflow_id, num_tasks, i):
 def end_task(uid, workflow_id, num_tasks, i):
     now = datetime.datetime.now()
     sk = f"/task/{num_tasks-i}/{i}"
-    end_task_response = kvstore.driver.update(
+    end_task_response = kvstore.driver.patch(
         store,
         workflow_id,
         sk=sk,
@@ -107,7 +100,7 @@ def end_task(uid, workflow_id, num_tasks, i):
 
 def end_workflow(uid, workflow_id):
     now = datetime.datetime.now()
-    end_workflow_response = kvstore.driver.update(
+    end_workflow_response = kvstore.driver.patch(
         store,
         workflow_id,
         sk="/",
@@ -119,10 +112,12 @@ def end_workflow(uid, workflow_id):
     # print(end_workflow_response)
 
 
+import subprocess
+import sys
+
+
 def begin_state_machine(workflow_id):
-    response = stepfunctions.start_execution(
-        stateMachineArn=os.environ["TASKS_STATE_MACHINE_ARN"],
-        input=json.dumps({"workflow_id": workflow_id}),
+    process = subprocess.Popen(
+        [sys.executable, "tasks/adapter/process.py", workflow_id]
     )
-    # print(response)
-    return dict(success=True)
+    return dict(success=True, pid=process.pid)

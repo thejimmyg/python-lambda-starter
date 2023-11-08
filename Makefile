@@ -2,7 +2,7 @@ SRCS := $(shell find static -type f )
 OBJS := $(SRCS:%=app/%.txt)
 
 
-.PHONY: clean all test deploy check format deploy-lambda check-env venv deploy-check-env smoke
+.PHONY: clean all test deploy check format deploy-lambda check-env venv deploy-check-env smoke serve smoke-local
 
 all: app/typeddicts.py $(OBJS)
 
@@ -10,7 +10,7 @@ app/static/%.txt: static/%
 	mkdir -p app/static
 	.venv/bin/python3 bin/encode_static.py $< $@
 
-app/typeddicts.py: bin/gen_typeddicts.py openapi-app.json
+app/typeddicts.py: bin/gen_typeddicts.py openapi-*.json
 	.venv/bin/python3 bin/gen_typeddicts.py openapi-app.json > $@
 
 venv:
@@ -34,6 +34,12 @@ format-python:
 
 format-cfn:
 	cfn-format -w deploy/stack-*.yml deploy/stack-*.template
+
+serve:
+ifndef PASSWORD
+	$(error PASSWORD environment variable is undefined)
+endif
+	PYTHONPATH=. CONFIG_STORE_DIR=kvstore/driver .venv/bin/python3 bin/serve_wsgi.py
 
 clean:
 	rm -f app/static/*.txt app/typeddicts.py
@@ -97,12 +103,21 @@ deploy-lambda: deploy-check-env clean all check test lambda.zip tasks-lambda.zip
 	        "ThrottlingRateLimit=50" \
 	        "ThrottlingBurstLimit=200" \
 	        "Password=${PASSWORD}"
-	.venv/bin/python3 test/smoke.py "https://${DOMAIN}"
+	PYTHONPATH=. .venv/bin/python3 test/smoke.py "https://${DOMAIN}"
 
 
 smoke:
 ifndef DOMAIN
 	$(error DOMAIN environment variable is undefined)
 endif
-	python3 test/smoke.py "https://${DOMAIN}"
+ifndef PASSWORD
+	$(error PASSWORD environment variable is undefined)
+endif
+	PYTHONPATH=. python3 test/smoke.py "https://${DOMAIN}"
+
+smoke-local:
+ifndef PASSWORD
+	$(error PASSWORD environment variable is undefined)
+endif
+	PYTHONPATH=. python3 test/smoke.py "http://localhost:8000"
 

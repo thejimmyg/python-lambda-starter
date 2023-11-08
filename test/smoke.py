@@ -28,7 +28,10 @@ def test_web_dict(lambda_url):
     with urllib.request.urlopen(lambda_url + "/dict") as response:
         response_body = response.read()
         assert response_body == b'{"hello": "world"}', response_body
-        assert ("Content-Type", "application/json") in response.getheaders()
+        assert (
+            "Content-Type",
+            "application/json",
+        ) in response.getheaders(), response.getheaders()
         assert ("Content-Length", "18") in response.getheaders()
         response_data = json.loads(response_body)
         assert response_data == {"hello": "world"}
@@ -67,13 +70,17 @@ def test_web_other(lambda_url):
             assert e.headers["Content-Length"] == "21", e.headers["Content-Length"]
         else:
             assert e.reason == "Internal Server Error", e.reason
-            assert (
-                response_body == b'{"message":"Internal Server Error"}'
-            ), response_body
-            assert e.headers["Content-Type"] == "application/json", e.headers[
-                "Content-Type"
+            assert response_body in [
+                b"A server error occurred.  Please contact the administrator.",
+                b'{"message":"Internal Server Error"}',
+            ], response_body
+            assert e.headers["Content-Type"] in [
+                "text/plain",
+                "application/json",
+            ], e.headers["Content-Type"]
+            assert e.headers["Content-Length"] in ["59", "35"], e.headers[
+                "Content-Length"
             ]
-            assert e.headers["Content-Length"] == "35", e.headers["Content-Length"]
 
 
 def test_web_static_hello_png(lambda_url):
@@ -95,7 +102,7 @@ def test_web_static_hello_png(lambda_url):
             assert response_body == fp.read(), "Data differs"
 
 
-def test_api(lambda_url):
+def test_api_submit_input(lambda_url):
     import json
     import os
     import urllib.request
@@ -123,9 +130,21 @@ def test_api(lambda_url):
     except urllib.error.HTTPError as e:
         assert e.code in [400], e.code
         response_body = e.read()
-        assert e.reason == "Bad Request", e.reason
+        assert e.reason in ["Bad Request", "Invalid data"], e.reason
         assert response_body == b"Invalid data", response_body
-        assert e.headers["Content-Type"] == "text/plain", e.headers["Content-Type"]
+        assert e.headers["Content-Type"] == "text/plain", e.headers.get("Content-Type")
+
+
+def test_sdk_submit_input(lambda_url):
+    import os
+
+    from app.typeddicts import SubmitInput, app_submit_input
+
+    result = app_submit_input(
+        base_url=lambda_url + "/api",
+        request_data=SubmitInput(password=os.environ["PASSWORD"], id=1),
+    )
+    assert result == {"success": True}, result
 
 
 if __name__ == "__main__":
@@ -151,7 +170,9 @@ if __name__ == "__main__":
     test_web_static_hello_png(lambda_url)
     print(".", end="")
     sys.stdout.flush()
-    test_api(lambda_url)
+    test_api_submit_input(lambda_url)
+    print(".", end="")
+    test_sdk_submit_input(lambda_url)
     print(".", end="")
     sys.stdout.flush()
     print("\nSUCCESS")

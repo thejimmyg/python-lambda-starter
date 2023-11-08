@@ -8,6 +8,7 @@ class Renderable(Protocol):
         ...
 
 
+# This is for data that is already base64 encoded
 class Base64:
     def __init__(self, data):
         self._data = data

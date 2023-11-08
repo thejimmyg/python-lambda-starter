@@ -1,7 +1,7 @@
 import os
 import urllib.parse
 
-from . import logic
+from . import operation
 from .template import Html, render
 
 
@@ -60,8 +60,8 @@ def handle_static(http):
     assert os.path.dirname(os.path.abspath(os.path.normpath(src))) == os.path.join(
         os.path.dirname(os.path.abspath(os.path.normpath(__file__))), "static"
     )
-    with open(src, "rb") as fp:
-        type, content = fp.read().strip().split(b"\n")
+    with open(src, "r") as fp:
+        type, content = fp.read().strip().split("\n")
         http.response.headers["content-type"] = type
         http.response.body = http.response.Base64(content)
 
@@ -69,7 +69,7 @@ def handle_static(http):
 def submit(http):
     if http.request.method == "post":
         q = urllib.parse.parse_qs(http.request.body.decode("utf8"))
-        result = logic.submit_input(
+        result = operation.submit_input(
             {"password": q["password"][0], "id": int(q["id"][0])}
         )
         assert result["success"]

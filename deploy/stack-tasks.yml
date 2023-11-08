@@ -34,9 +34,11 @@ Resources:
       Environment:
         Variables:
           KVSTORE_DYNAMODB_TABLE_NAME: !Sub '${AWS::StackName}-${TableName}'
+
           # How much time to make sure is still available (the DELAY_MS value gets added on top of this)
           SAFETY_MULTIPLE: 1.4
           SAFETY_DELAY_MS: 0
+
           # How many ms to wait after each task
           DELAY_MS: 0
 

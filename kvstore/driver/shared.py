@@ -2,6 +2,10 @@ class NotFoundInStoreDriver(Exception):
     pass
 
 
+class Remove:
+    pass
+
+
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -20,6 +24,6 @@ class KvStore(Protocol):
         ...
 
     def iterate(
-        store, pk, sk_start="/", limit=None, consistent=False
+        store, pk, sk_start="/", limit=None, after=False, consistent=False
     ) -> tuple[Any, str | None]:
         ...

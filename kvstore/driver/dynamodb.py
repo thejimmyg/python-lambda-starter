@@ -1,7 +1,11 @@
+import math
 import os
+import time
 from typing import Any
 
 import boto3
+
+from .shared import NotFoundInStoreDriver, Remove
 
 dynamodb = boto3.client(service_name="dynamodb", region_name=os.environ["AWS_REGION"])
 
@@ -9,13 +13,15 @@ dynamodb = boto3.client(service_name="dynamodb", region_name=os.environ["AWS_REG
 def put(store, pk, data, sk="/", ttl=None):
     assert "/" not in store
     assert sk[0] == "/"
+    if ttl is not None:
+        assert isinstance(ttl, int), ttl
     actual_pk = f"{store}/{pk}"
     item = {
         "pk": {"S": actual_pk},
         "sk": {"S": sk},
     }
     if ttl:
-        item["ttl"] = {"N": int(ttl)}
+        item["ttl"] = {"N": str(ttl)}
     item.update(_data_to_dynamo_format(data))
     dynamodb.put_item(
         TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
@@ -23,28 +29,77 @@ def put(store, pk, data, sk="/", ttl=None):
     )
 
 
-def patch(store, pk, data, sk="/", ttl=None):
+# https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.Multiple
+def _data_to_dynamo_update_format(data, ttl):
+    assert "pk" not in data
+    assert "sk" not in data
+    assert "ttl" not in data
+    # --update-expression "SET Price = Price - :p REMOVE InStock" \
+    # --expression-attribute-values '{":p": {"N":"15"}}' \
+    to_update = {}
+    to_remove = []
+    for k, v in data.items():
+        assert isinstance(k, str)
+        if v is Remove:
+            to_remove.append(k)
+        else:
+            if isinstance(v, int) or isinstance(v, float):
+                value = {"N": str(v)}
+            elif isinstance(data[k], str):
+                value = {"S": v}
+            else:
+                raise Exception(
+                    f"Value {repr(data[k])} for key '{k}' is not a string or number"
+                )
+            to_update[k] = value
+    if ttl is None:
+        to_remove.append("ttl")
+    elif ttl != "notchanged":
+        to_update["ttl"] = {"N": str(ttl)}
+    update_expression = ""
+    expression_attribute_values = {}
+    expression_attribute_names = {}
+    if to_update:
+        update_expression += (
+            "SET " + ", ".join([f"#{k} = :{k}" for k in to_update]) + " "
+        )
+        for k in to_update:
+            expression_attribute_values[":" + k] = to_update[k]
+            expression_attribute_names["#" + k] = k
+    if to_remove:
+        update_expression += "REMOVE " + ", ".join(["#" + k for k in to_remove]) + " "
+        for k in to_remove:
+            expression_attribute_names["#" + k] = k
+    return update_expression, expression_attribute_values, expression_attribute_names
+
+
+def patch(store, pk, data, sk="/", ttl="notchanged"):
     assert "/" not in store
     assert sk[0] == "/"
+    if ttl not in [None, "notchanged"]:
+        assert isinstance(ttl, int), ttl
     actual_pk = f"{store}/{pk}"
-    attribute_updates = _data_to_dynamo_update_format(data)
-    if ttl:
-        attribute_updates["ttl"] = {
-            "Value": {"N": int(ttl)},
-            "Action": "PUT",
-        }
-    dynamodb.update_item(
+    (
+        update_expression,
+        expression_attribute_values,
+        expression_attribute_names,
+    ) = _data_to_dynamo_update_format(data, ttl)
+    args = dict(
         TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
         Key={
             "pk": {"S": actual_pk},
             "sk": {"S": sk},
         },
-        AttributeUpdates=attribute_updates,
+        UpdateExpression=update_expression,
     )
+    if expression_attribute_values:
+        args["ExpressionAttributeValues"] = expression_attribute_values
+    if expression_attribute_names:
+        args["ExpressionAttributeNames"] = expression_attribute_names
+    dynamodb.update_item(**args)
 
 
 def delete(store, pk, sk="/"):
-    raise Exception("Not tested yet")
     assert "/" not in store
     assert sk[0] == "/"
     actual_pk = f"{store}/{pk}"
@@ -58,7 +113,7 @@ def delete(store, pk, sk="/"):
 
 
 def iterate(
-    store, pk, sk_start="/", limit=None, consistent=False
+    store, pk, sk_start="/", limit=None, after=False, consistent=False
 ) -> tuple[Any, str | None]:
     """
         https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.Pagination.html
@@ -84,36 +139,48 @@ def iterate(
     assert "/" not in store
     assert sk_start[0] == "/"
     actual_pk = f"{store}/{pk}"
+
     if sk_start:
-        r = dynamodb.query(
+        # Should we be using ExclusiveStartKey here?
+        # Shouldn't it be sk_start_after if a key is specified at all?
+        if after:
+            operator = ">"
+        else:
+            operator = ">="
+        args = dict(
             TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
             ConsistentRead=consistent,
-            Limit=limit,
-            KeyConditionExpression="(#n0 = :v0) AND (#n1 >= :v1)",
+            KeyConditionExpression="(#pk = :pk) AND (#sk " + operator + " :sk)",
             ExpressionAttributeNames={
-                "#n0": "pk",
-                "#n1": "sk",
+                "#pk": "pk",
+                "#sk": "sk",
             },
             ExpressionAttributeValues={
                 # WARNING: The values do not seem to be type checked currently.
-                ":v0": {"S": actual_pk},
-                ":v1": {"S": sk_start},
+                ":pk": {"S": actual_pk},
+                ":sk": {"S": sk_start},
             },
         )
     else:
-        r = dynamodb.query(
+        args = dict(
             TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
             ConsistentRead=consistent,
-            Limit=limit,
-            KeyConditionExpression="(#n0 = :v0)",
+            KeyConditionExpression="(#pk = :pk)",
             ExpressionAttributeNames={
-                "#n0": "pk",
+                "#pk": "pk",
             },
             ExpressionAttributeValues={
                 # WARNING: The value does not seem to be type checked currently.
-                ":v0": {"S": actual_pk},
+                ":pk": {"S": actual_pk},
             },
         )
+    if limit:
+        args["Limit"] = limit
+    # Need to add a filter expression for expired items. It could take days for DynamoDB to actually get around to expiring them
+    args["FilterExpression"] = "#ttl > :ttl or attribute_not_exists(#ttl) "
+    args["ExpressionAttributeNames"]["#ttl"] = "ttl"
+    args["ExpressionAttributeValues"][":ttl"] = {"N": str(math.floor(time.time()))}
+    r = dynamodb.query(**args)
     results = []
     for item in r["Items"]:
         parts = item["pk"]["S"].split("/")
@@ -121,43 +188,25 @@ def iterate(
         pk = "/".join(parts[1:])
         sk = item["sk"]["S"]
         assert sk[0] == "/"
-        sk = sk[1:]
+        # sk = sk[1:]
         del item["pk"]
         del item["sk"]
-        ttl = item.get("ttl")
+        ttl = None
         if "ttl" in item:
+            ttl = int(item["ttl"]["N"])
             del item["ttl"]
         data = _data_from_dynamo_format(item)
         results.append((sk, data, ttl))
+    if len(results) == 0 and not r.get("LastEvaluatedKey"):
+        raise NotFoundInStoreDriver(f"No such pk '{pk}' in the '{store}' store")
     if len(results) == limit:
         return results, None
     else:
         return (
             results,
-            r.get("LastEvaluatedKey") and str(r.get("LastEvaluatedKey")) or None,
+            # e.g.  {'pk': {'S': 'test/multiple'}, 'sk': {'S': '/2'}}
+            "LastEvaluatedKey" in r and r["LastEvaluatedKey"]["sk"]["S"] or None,
         )
-
-
-def _data_to_dynamo_update_format(data):
-    assert "pk" not in data
-    assert "sk" not in data
-    assert "ttl" not in data
-    result = {}
-    for k in data:
-        assert isinstance(k, str)
-        if isinstance(data[k], int) or isinstance(data[k], float):
-            value = {"N": str(data[k])}
-        elif isinstance(data[k], str):
-            value = {"S": data[k]}
-        else:
-            raise Exception(
-                f"Value {repr(data[k])} for key '{k}' is not a string or number"
-            )
-        result[k] = {
-            "Value": value,
-            "Action": "PUT",
-        }
-    return result
 
 
 def _data_to_dynamo_format(data):

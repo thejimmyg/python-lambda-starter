@@ -5,7 +5,7 @@ import time
 from threading import RLock
 from typing import Any
 
-from .shared import NotFoundInStoreDriver
+from .shared import NotFoundInStoreDriver, Remove
 
 config_store_dir = os.environ["CONFIG_STORE_DIR"]
 config_driver_key_value_store_type = os.environ.get(
@@ -80,14 +80,22 @@ def cleanup():
 
 
 def put(store: str, pk: str, data, sk="/", ttl=None):
+    assert "pk" not in data
+    assert "sk" not in data
+    assert "ttl" not in data
+    assert "/" not in store
+    if ttl is not None:
+        assert isinstance(ttl, int), ttl
     if _cur is None:
         init()
     assert _conn is not None, "Database not initilaized, no _conn object."
     assert _cur is not None, "Database not initilaized, no _cur object."
-    assert "/" not in store
     assert sk[0] == "/"
     cols = ["store", "pk", "sk", "ttl", "data"]
     values = [store, pk, sk, ttl, json.dumps(dict(data))]
+    size = len(store) + 1 + len(pk) + len(pk) + len(str(ttl or "")) + len(values[-1])
+    if size > 400 * 1024:
+        raise Exception("Item is too large")
     with rlock:
         sql = (
             "INSERT OR REPLACE INTO "
@@ -108,10 +116,12 @@ def put(store: str, pk: str, data, sk="/", ttl=None):
 
 
 def delete(store: str, pk: str, sk="/"):
+    assert "/" not in store
     if _cur is None:
         init()
     assert _conn is not None, "Database not initilaized, no _conn object."
     assert _cur is not None, "Database not initilaized, no _cur object."
+    assert sk[0] == "/"
 
     with rlock:
         sql = "DELETE FROM " + "store" + " WHERE store=? AND pk=?"
@@ -132,15 +142,24 @@ def delete(store: str, pk: str, sk="/"):
 
 # consistent is ignored
 def iterate(
-    store, pk, sk_start="/", limit=None, consistent=False
+    store, pk, sk_start="/", limit=None, after=False, consistent=False
 ) -> tuple[Any, str | None]:
     if _cur is None:
         init()
     assert _conn is not None, "Database not initilaized, no _conn object."
     assert _cur is not None, "Database not initilaized, no _cur object."
+    assert sk_start[0] == "/"
     with rlock:
         # Only return unexpired items
-        sql = "select data, pk, sk, ttl from store where store = ? AND pk = ? and sk >= ? AND (ttl is NULL OR ttl > ?)"
+        if after:
+            operator = ">"
+        else:
+            operator = ">="
+        sql = (
+            "select data, pk, sk, ttl from store where store = ? AND pk = ? and sk "
+            + operator
+            + " ? AND (ttl is NULL OR ttl > ?)"
+        )
         values = [store, pk, sk_start, time.time()]
         if limit:
             sql += " LIMIT ?"
@@ -150,14 +169,29 @@ def iterate(
         # helper_log(__file__, len(rows), rows)
         if len(rows) == 0:
             raise NotFoundInStoreDriver(f"No such pk '{pk}' in the '{store}' store")
-        results = []
+        results: list[tuple[str, dict[str, Any], int]] = []
+        size = 0
+        last_row = None
         for row in rows:
             result = json.loads(row[0])
+            size += len(row[0])
+            # print(size)
+            # Why this value?
+            if size > int(1.5 * 1024 * 1024):
+                return results, last_row
             results.append((row[2], result, row[3]))
+            last_row = row[2]
         return results, None
 
 
-def patch(store, pk, data, sk="/", ttl=None):
+def patch(store, pk, data, sk="/", ttl="notchanged"):
+    assert "pk" not in data
+    assert "sk" not in data
+    assert "ttl" not in data
+    assert "/" not in store
+    assert sk[0] == "/"
+    if ttl not in ["notchanged", None]:
+        assert isinstance(ttl, int), ttl
     # XXX This should be safe without a transaction because of the RLock? Unless the same thread makes requests concurrently.
     current, next = iterate(store, pk, sk_start=sk, limit=1, consistent=False)
     assert next is None, next
@@ -165,5 +199,11 @@ def patch(store, pk, data, sk="/", ttl=None):
     assert sk_ == sk, sk_
     new_data = {}
     new_data.update(data_)
-    new_data.update(data)
-    put(store, pk, new_data, sk, ttl)
+    for k, v in data.items():
+        if v is Remove:
+            if k in new_data:
+                del new_data[k]
+        else:
+            new_data[k] = v
+    new_ttl = ttl == "notchanged" and ttl_ or ttl
+    put(store, pk, new_data, sk, new_ttl)

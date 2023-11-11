@@ -205,5 +205,9 @@ def patch(store, pk, data, sk="/", ttl="notchanged"):
                 del new_data[k]
         else:
             new_data[k] = v
-    new_ttl = ttl == "notchanged" and ttl_ or ttl
+    if ttl == "notchanged":
+        new_ttl = ttl_
+    else:
+        new_ttl = ttl
+    assert new_ttl != "notchanged"
     put(store, pk, new_data, sk, new_ttl)

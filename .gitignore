@@ -5,8 +5,7 @@
 __pycache__
 app/static
 app/typeddicts.py
-deploy/*.env
-deploy/deploy-*.yml
+deploy-*.yml
+kvstore/driver/driver_key_value_store/
 lambda.zip
 tasks-lambda.zip
-kvstore/driver/driver_key_value_store/

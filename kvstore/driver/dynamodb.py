@@ -1,4 +1,3 @@
-import math
 import os
 import time
 from typing import Any
@@ -14,7 +13,7 @@ def put(store, pk, data, sk="/", ttl=None):
     assert "/" not in store
     assert sk[0] == "/"
     if ttl is not None:
-        assert isinstance(ttl, int), ttl
+        assert isinstance(ttl, (int, float)), ttl
     actual_pk = f"{store}/{pk}"
     item = {
         "pk": {"S": actual_pk},
@@ -43,7 +42,7 @@ def _data_to_dynamo_update_format(data, ttl):
         if v is Remove:
             to_remove.append(k)
         else:
-            if isinstance(v, int) or isinstance(v, float):
+            if isinstance(v, (int, float)):
                 value = {"N": str(v)}
             elif isinstance(data[k], str):
                 value = {"S": v}
@@ -77,7 +76,7 @@ def patch(store, pk, data, sk="/", ttl="notchanged"):
     assert "/" not in store
     assert sk[0] == "/"
     if ttl not in [None, "notchanged"]:
-        assert isinstance(ttl, int), ttl
+        assert isinstance(ttl, (int, float)), ttl
     actual_pk = f"{store}/{pk}"
     (
         update_expression,
@@ -179,7 +178,7 @@ def iterate(
     # Need to add a filter expression for expired items. It could take days for DynamoDB to actually get around to expiring them
     args["FilterExpression"] = "#ttl > :ttl or attribute_not_exists(#ttl) "
     args["ExpressionAttributeNames"]["#ttl"] = "ttl"
-    args["ExpressionAttributeValues"][":ttl"] = {"N": str(math.floor(time.time()))}
+    args["ExpressionAttributeValues"][":ttl"] = {"N": str(time.time())}
     r = dynamodb.query(**args)
     results = []
     for item in r["Items"]:
@@ -193,7 +192,7 @@ def iterate(
         del item["sk"]
         ttl = None
         if "ttl" in item:
-            ttl = int(item["ttl"]["N"])
+            ttl = float(item["ttl"]["N"])
             del item["ttl"]
         data = _data_from_dynamo_format(item)
         results.append((sk, data, ttl))

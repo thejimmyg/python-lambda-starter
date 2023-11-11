@@ -8,10 +8,10 @@ all: app/typeddicts.py $(OBJS)
 
 app/static/%.txt: static/%
 	mkdir -p app/static
-	.venv/bin/python3 bin/encode_static.py $< $@
+	.venv/bin/python3 encode_static.py $< $@
 
-app/typeddicts.py: bin/gen_typeddicts.py openapi-*.json
-	.venv/bin/python3 bin/gen_typeddicts.py openapi-app.json > $@
+app/typeddicts.py: gen_typeddicts.py openapi-*.json
+	.venv/bin/python3 gen_typeddicts.py openapi-app.json > $@
 
 venv:
 	python3 -m venv .venv && .venv/bin/pip install isort autoflake black mypy cfn-lint boto3 boto3-stubs[stepfunctions] boto3-stubs[dynamodb]
@@ -19,8 +19,19 @@ venv:
 deploy:
 	@echo "Did you mean 'make deploy-lambda'?"
 check: app/typeddicts.py
-	.venv/bin/cfn-lint deploy/stack-*.yml deploy/stack-*.template --ignore-templates deploy/stack-api-gateway.template deploy/stack-cloudfront.template deploy/stack-lambda.yml deploy/stack-tasks.yml
-	.venv/bin/cfn-lint deploy/stack-api-gateway.template deploy/stack-cloudfront.template deploy/stack-lambda.yml deploy/stack-tasks.yml -i W3002
+	.venv/bin/cfn-lint stack-dns-zone.yml \
+	  serve/adapter/lambda_function/cloudfront/stack-lambda-url.yml \
+	  serve/adapter/lambda_function/cloudfront/stack-cloudfront.yml \
+	  stack-cloudformation-bucket.yml \
+	  serve/adapter/lambda_function/stack-certificate.yml \
+	  serve/adapter/lambda_function/stack-api-gateway.yml \
+	  serve/adapter/lambda_function/stack-api-gateway-domain.yml \
+	  tasks/stack-tasks-start.yml
+	.venv/bin/cfn-lint stack-dns-zone.yml -i W3002 \
+	  serve/adapter/lambda_function/stack-lambda.yml \
+	  tasks/stack-tasks.yml \
+	  serve/adapter/lambda_function/cloudfront/stack-cloudfront.template \
+	  serve/adapter/lambda_function/example.template
 	.venv/bin/mypy app/*.py test/*.py --check-untyped-defs
 
 test: app/typeddicts.py $(OBJS)
@@ -33,13 +44,13 @@ format-python:
 	.venv/bin/isort . && .venv/bin/autoflake -r --in-place --remove-unused-variables --remove-all-unused-imports . && .venv/bin/black .
 
 format-cfn:
-	cfn-format -w deploy/stack-*.yml deploy/stack-*.template
+	cfn-format -w stack-* serve/adapter/lambda_function/stack-* serve/adapter/lambda_function/cloudfront/stack-* tasks/stack-*
 
 serve:
 ifndef PASSWORD
 	$(error PASSWORD environment variable is undefined)
 endif
-	PYTHONPATH=. CONFIG_STORE_DIR=kvstore/driver .venv/bin/python3 bin/serve_wsgi.py
+	PYTHONPATH=. STORE_DIR=kvstore/driver .venv/bin/python3 serve/adapter/wsgi/bin/serve_wsgi.py
 
 clean:
 	rm -f app/static/*.txt app/typeddicts.py
@@ -87,13 +98,13 @@ ifndef PASSWORD
 endif
 deploy-lambda: deploy-check-env clean all check test lambda.zip tasks-lambda.zip
 	@echo "Deploying stack $(STACK_NAME) for https://$(DOMAIN) to $(AWS_REGION) via S3 bucket $(CLOUDFORMATION_BUCKET) using Route53 zone $(HOSTED_ZONE_ID)" ...
-	cd deploy && aws cloudformation package \
-	    --template-file "stack-api-gateway.template" \
+	aws cloudformation package \
+	    --template-file "stack-deploy-lambda.template" \
 	    --s3-bucket "${CLOUDFORMATION_BUCKET}" \
 	    --s3-prefix "${STACK_NAME}" \
-	    --output-template-file "deploy-api-gateway.yml" && \
+	    --output-template-file "deploy-lambda.yml" && \
 	aws cloudformation deploy \
-	    --template-file "deploy-api-gateway.yml" \
+	    --template-file "deploy-lambda.yml" \
 	    --stack-name "${STACK_NAME}" \
 	    --capabilities CAPABILITY_NAMED_IAM \
 	    --parameter-overrides \

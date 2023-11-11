@@ -113,7 +113,7 @@ Then visit [http://localhost:8000](http://localhost:8000).
 
 ## Deploy
 
-Follow [Deploy](deploy/README.md) for the pre-requisites.
+Follow [Deploy](serve/adapter/lambda_function/README.md) for the pre-requisites.
 
 Deploy the API Gateway version with:
 
@@ -130,7 +130,13 @@ export STACK_NAME="..."
 make deploy-lambda
 ```
 
-There are separate [deploy instructions for CloudFront](deploy/CLOUDFRONT.md), but you must also follow the [Deploy](deploy/README.md) pre-requisites first.
+There are separate [deploy instructions for
+CloudFront](serve/adapter/lambda_function/cloudfront/README.md), but you must
+also follow the [Deploy](serve/adapter/lambda_function/README.md)
+pre-requisites first. The only reason I can see to use CloudFront is if you
+need your site to be redirected from the HTTP version. API Gateway does not
+support HTTP->HTTPS redirection so browsers might not find your site if you
+just type the domain alone.
 
 
 ## License

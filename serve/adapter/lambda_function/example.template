@@ -36,28 +36,10 @@ Resources:
   HttpLambdaStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: ./stack-lambda.yml
+      TemplateURL: serve/adapter/lambda_function/stack-lambda.yml
       Parameters:
         ReservedConcurrency: !Ref ReservedConcurrency
         Password: !Ref Password
-        TasksDynamodbTableName: !GetAtt TaskStack.Outputs.TableName
-        TasksStateMachineArn: !GetAtt TaskStack.Outputs.StateMachineArn
-
-  TaskStack:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        TableName: Tasks
-      TemplateURL: ./stack-tasks.yml
-
-  TaskStartStack:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        StartingLambdaExecutionRoleFriendlyName: !GetAtt HttpLambdaStack.Outputs.HttpLambdaExecutionRoleFriendlyName
-        DynamodbTableArn: !GetAtt TaskStack.Outputs.TableArn
-        StateMachineArn: !GetAtt TaskStack.Outputs.StateMachineArn
-      TemplateURL: ./stack-tasks-start.yml
 
   CertificateStack:
     Type: AWS::CloudFormation::Stack
@@ -65,7 +47,7 @@ Resources:
       Parameters:
         Domain: !Ref Domain
         HostedZoneId: !Ref HostedZoneId
-      TemplateURL: ./stack-certificate.yml
+      TemplateURL: serve/adapter/lambda_function/stack-certificate.yml
 
   ApiGatewayStack:
     Type: AWS::CloudFormation::Stack
@@ -74,7 +56,7 @@ Resources:
         LambdaArn: !GetAtt HttpLambdaStack.Outputs.HttpLambdaArn
         ThrottlingRateLimit: !Ref ThrottlingRateLimit
         ThrottlingBurstLimit: !Ref ThrottlingBurstLimit
-      TemplateURL: ./stack-api-gateway.yml
+      TemplateURL: serve/adapter/lambda_function/stack-api-gateway.yml
 
   ApiGatewayDomainStack:
     Type: AWS::CloudFormation::Stack
@@ -85,4 +67,4 @@ Resources:
         HostedZoneId: !Ref HostedZoneId
         Api: !GetAtt ApiGatewayStack.Outputs.Api
         V1Stage: !GetAtt ApiGatewayStack.Outputs.V1Stage
-      TemplateURL: ./stack-api-gateway-domain.yml
+      TemplateURL: serve/adapter/lambda_function/stack-api-gateway-domain.yml

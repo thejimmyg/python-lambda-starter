@@ -3,7 +3,7 @@ import json
 
 import app.app
 
-from .shared import Base64, Http, Renderable, Request, RespondEarly, Response
+from ..shared import Base64, Http, Renderable, Request, RespondEarly, Response
 
 
 def lambda_handler(event, context):

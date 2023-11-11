@@ -79,7 +79,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Role: !GetAtt HttpLambdaRole.Arn
-      Code: ../lambda.zip
+      Code: ../../../lambda.zip
       ReservedConcurrentExecutions: !If
         - SetReservedConcurrentExecutions
         - !Ref ReservedConcurrency

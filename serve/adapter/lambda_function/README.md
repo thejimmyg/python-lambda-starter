@@ -8,6 +8,52 @@ WARNING: If you try to switch from a CloudFormation deloyment to an API Gateway 
 
 CloudFormation isn't smart enough to make the change. You'll have to delete the recordset first.
 
+
+## Helper Scripts
+
+To run the deploy needs these helper scripts:
+
+```sh
+cat << EOF > json2env.py
+import json
+import shlex
+import sys
+
+
+def camel_to_snake(s):
+    return "".join(["_" + c.lower() if c.isupper() else c for c in s]).lstrip("_")
+
+
+def dict_to_shell(vars):
+    output = ""
+    for k, v in vars.items():
+        if type(v) in [dict, list]:
+            v = json.dumps(v)
+        output += f"{camel_to_snake(k).upper()}={shlex.quote(str(v))}\n"
+    return output
+
+
+print(dict_to_shell(json.loads(sys.stdin.read() or "{}")), end="")
+EOF
+cat << EOF > stackout.py
+import json
+import sys
+
+
+def filter_first_stack_outputs(stacks):
+    return {
+        o["OutputKey"]: o.get("OutputValue")
+        for o in stacks["Stacks"][0].get("Outputs", [])
+    }
+
+
+print(json.dumps(filter_first_stack_outputs(json.loads(sys.stdin.read())), indent=2))
+EOF
+```
+
+## Get Started
+
+
 Set up your AWS credentials for the account and region you want to deploy to:
 
 ```
@@ -77,7 +123,7 @@ aws cloudformation wait stack-create-complete --stack-name "${DNS_ZONE_STACK_NAM
 Get the Hosted Zone ID and Nameservers:
 
 ```sh
-aws cloudformation describe-stacks --no-paginate --stack-name "${DNS_ZONE_STACK_NAME}" | python3 ../bin/stackout.py | python3 ../bin/json2env.py > dns-zone-output.env
+aws cloudformation describe-stacks --no-paginate --stack-name "${DNS_ZONE_STACK_NAME}" | python3 stackout.py | python3 json2env.py > dns-zone-output.env
 source dns-zone-output.env
 echo "${HOSTED_ZONE_ID}: ${NAMESERVER_RECORDS}"
 ```

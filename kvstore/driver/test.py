@@ -1,4 +1,4 @@
-# CONFIG_STORE_DIR=. PYTHONPATH=../../ python3 test.py
+# STORE_DIR=. PYTHONPATH=../../ python3 test.py
 # AWS_REGION=eu-west-2 KVSTORE_DYNAMODB_TABLE_NAME=Apps-TaskStack-1SHSM43C3W9G0-Tasks PYTHONPATH=../../ python3 test.py
 
 import math
@@ -11,6 +11,17 @@ store = "test"
 
 
 def main():
+    # Choose a ttl with a floating point component
+    ttl = math.floor(time.time())
+    if int(ttl) == ttl:
+        ttl += 1.11234
+    put(
+        store=store,
+        pk="foo-1",
+        data={"hello": "world"},
+        ttl=ttl,
+    )
+
     for data, store_ in [
         (dict(pk="1"), store),
         (dict(sk="/hello"), store),
@@ -109,7 +120,7 @@ def main():
 
     print("foo0 data checks passed")
 
-    start_ttl = math.ceil(time.time()) + 1
+    start_ttl = time.time() + 0.1
     put(
         store=store,
         pk="foo1",
@@ -125,7 +136,7 @@ def main():
     assert ttl == start_ttl, (start_ttl, ttl)
     print("Stored foo1 successfully")
 
-    start_ttl = math.ceil(time.time()) + 2
+    start_ttl = time.time() + 0.1
     put(store=store, pk="foo1", data=dict(banana=3.15, foo="goodbye"), ttl=start_ttl)
     results, next_ = iterate(store=store, pk="foo1", consistent=True)
     assert len(results) == 1, results
@@ -150,7 +161,7 @@ def main():
     assert ttl == None, ttl
     print("Updated foo1 successfully without a ttl")
 
-    time.sleep(start_ttl - time.time() + 1)
+    time.sleep(0.21)
     results, next_ = iterate(store=store, pk="foo1", consistent=True)
     assert len(results) == 1, results
     assert next_ is None
@@ -167,7 +178,7 @@ def main():
         data=dict(banana=3.17, foo="hello"),
     )
     # Add a ttl, bar value and change banana
-    start_ttl = math.ceil(time.time()) + 1
+    start_ttl = time.time() + 0.1
     patch(
         store=store,
         pk="foo2",
@@ -181,6 +192,21 @@ def main():
     assert sk == "/", sk
     assert result == {"banana": 3.18, "foo": "hello", "bar": "bye"}, result
     assert ttl == start_ttl, ttl
+    # Update the patch, changing the ttl
+    start_ttl = time.time() + 0.1
+    patch(
+        store=store,
+        pk="foo2",
+        data=dict(banana=3.19, foo="hello", bar="bye"),
+        ttl=start_ttl,
+    )
+    results, next_ = iterate(store=store, pk="foo2", consistent=True)
+    assert len(results) == 1, results
+    assert next_ is None
+    sk, result, ttl = results[0]
+    assert sk == "/", sk
+    assert result == {"banana": 3.19, "foo": "hello", "bar": "bye"}, result
+    assert ttl == start_ttl, ttl
     # Update the foo value, don't change the ttl
     patch(
         store=store,
@@ -192,7 +218,7 @@ def main():
     assert next_ is None
     sk, result, ttl = results[0]
     assert sk == "/", sk
-    assert result == {"banana": 3.18, "foo": "hello1", "bar": "bye"}, result
+    assert result == {"banana": 3.19, "foo": "hello1", "bar": "bye"}, result
     assert ttl == start_ttl, ttl
     # Remove the ttl and bar value
     patch(
@@ -214,7 +240,7 @@ def main():
         store=store,
         pk="foo3",
         data=dict(banana=3.14, foo="hello"),
-        ttl=math.ceil(time.time()),
+        ttl=time.time() + 0.1,
     )
     time.sleep(1.1)
     try:

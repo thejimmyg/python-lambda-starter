@@ -7,21 +7,14 @@ from typing import Any
 
 from .shared import NotFoundInStoreDriver, Remove
 
-config_store_dir = os.environ["CONFIG_STORE_DIR"]
-config_driver_key_value_store_type = os.environ.get(
-    "DRIVER_KEY_VALUE_STORE_TYPE", "sqlite3"
+config_store_dir = os.environ["STORE_DIR"]
+config_driver_key_value_store_dir = os.path.join(
+    config_store_dir, "driver_key_value_store"
 )
-assert config_driver_key_value_store_type in [
-    "sqlite3"
-], config_driver_key_value_store_type
-if config_driver_key_value_store_type == "sqlite3":
-    config_driver_key_value_store_dir = os.path.join(
-        config_store_dir, "driver_key_value_store"
-    )
-    os.makedirs(config_driver_key_value_store_dir, exist_ok=True)
-    config_driver_key_value_store_db_path = os.path.join(
-        config_driver_key_value_store_dir, "sqlite.db"
-    )
+os.makedirs(config_driver_key_value_store_dir, exist_ok=True)
+config_driver_key_value_store_db_path = os.path.join(
+    config_driver_key_value_store_dir, "sqlite.db"
+)
 
 
 # This might not be needed if we create a cursor within each function, but I don't know enough about the underlying implementation to be sure.
@@ -66,7 +59,7 @@ def init():
             )
             _cur = _conn.cursor()
             _cur.execute(
-                "create table if not exists store (store text, pk text, sk text, ttl number, data text NOT NULL, PRIMARY KEY (store, pk, sk));"
+                "create table if not exists store (store text, pk text, sk text, ttl real, data text NOT NULL, PRIMARY KEY (store, pk, sk));"
             )
             _cur.execute(
                 "create index if not exists store_ttl on store (ttl) where ttl is not NULL;"
@@ -85,7 +78,7 @@ def put(store: str, pk: str, data, sk="/", ttl=None):
     assert "ttl" not in data
     assert "/" not in store
     if ttl is not None:
-        assert isinstance(ttl, int), ttl
+        assert isinstance(ttl, (int, float)), ttl
     if _cur is None:
         init()
     assert _conn is not None, "Database not initilaized, no _conn object."
@@ -191,7 +184,7 @@ def patch(store, pk, data, sk="/", ttl="notchanged"):
     assert "/" not in store
     assert sk[0] == "/"
     if ttl not in ["notchanged", None]:
-        assert isinstance(ttl, int), ttl
+        assert isinstance(ttl, (int, float)), ttl
     # XXX This should be safe without a transaction because of the RLock? Unless the same thread makes requests concurrently.
     current, next = iterate(store, pk, sk_start=sk, limit=1, consistent=False)
     assert next is None, next

@@ -5,7 +5,7 @@ from socketserver import ThreadingMixIn
 from typing import Any
 from wsgiref.simple_server import WSGIServer, make_server
 
-from .shared import Base64, Http, Renderable, Request, RespondEarly, Response
+from ..shared import Base64, Http, Renderable, Request, RespondEarly, Response
 
 
 class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):

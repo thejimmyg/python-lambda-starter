@@ -1,5 +1,5 @@
 from app.app import app
-from serve.adapter.wsgi import start_server
+from serve.adapter.wsgi.wsgi import start_server
 
 
 def main() -> None:

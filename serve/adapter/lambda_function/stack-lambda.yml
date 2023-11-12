@@ -6,20 +6,9 @@ Parameters:
     Type: Number
     Default: -1
 
-  Password:
-    Description: Password for submit
+  EncodedEnvironment:
+    Description: An environment dictionary encoded as key|value, pairs. If key or value contains $ , or | they should be prepended with $ and base64 encoded
     Type: String
-    MinLength: 3
-
-  TasksDynamodbTableName:
-    Description: The name of the DynamoDB Table used for storing tasks
-    Type: String
-    MinLength: 3
-
-  TasksStateMachineArn:
-    Description: The ARN of the state machine for keeping the task lambda running to completion
-    Type: String
-    MinLength: 3
 
 Conditions:
   SetReservedConcurrentExecutions: !Not [!Equals [!Ref ReservedConcurrency, -1]]
@@ -91,9 +80,7 @@ Resources:
       MemorySize: 128
       Environment:
         Variables:
-          PASSWORD: !Ref Password
-          KVSTORE_DYNAMODB_TABLE_NAME: !Ref TasksDynamodbTableName
-          TASKS_STATE_MACHINE_ARN: !Ref TasksStateMachineArn
+          ENCODED_ENVIRONMENT: !Ref EncodedEnvironment
 
 Outputs:
   HttpLambdaArn:

@@ -12,7 +12,7 @@ store = "test"
 
 def main():
     # Choose a ttl with a floating point component
-    ttl = math.floor(time.time())
+    ttl: float = float(math.floor(time.time()))
     if int(ttl) == ttl:
         ttl += 1.11234
     put(

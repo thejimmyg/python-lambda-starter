@@ -39,9 +39,7 @@ Resources:
       TemplateURL: serve/adapter/lambda_function/stack-lambda.yml
       Parameters:
         ReservedConcurrency: !Ref ReservedConcurrency
-        Password: !Ref Password
-        TasksDynamodbTableName: !GetAtt TaskStack.Outputs.TableName
-        TasksStateMachineArn: !GetAtt TaskStack.Outputs.StateMachineArn
+        EncodedEnvironment: !Sub 'PASSWORD|${Password},KVSTORE_DYNAMODB_TABLE_NAME|${TaskStack.Outputs.TableName},TASKS_STATE_MACHINE_ARN|${TaskStack.Outputs.StateMachineArn}'
 
   TaskStack:
     Type: AWS::CloudFormation::Stack

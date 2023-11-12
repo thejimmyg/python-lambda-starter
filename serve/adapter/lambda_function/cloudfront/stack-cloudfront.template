@@ -31,12 +31,10 @@ Resources:
   HttpLambdaStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: ./stack-lambda.yml
+      TemplateURL: ../stack-lambda.yml
       Parameters:
         ReservedConcurrency: !Ref ReservedConcurrency
-        Password: !Ref Password
-        TasksDynamodbTableName: !GetAtt TaskStack.Outputs.TableName
-        TasksStateMachineArn: !GetAtt TaskStack.Outputs.StateMachineArn
+        EncodedEnvironment: !Sub 'PASSWORD|${Password}'
 
   HttpLambdaUrlStack:
     Type: AWS::CloudFormation::Stack
@@ -44,22 +42,6 @@ Resources:
       Parameters:
         HttpLambdaArn: !GetAtt HttpLambdaStack.Outputs.HttpLambdaArn
       TemplateURL: ./stack-lambda-url.yml
-
-  TaskStack:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        TableName: Tasks
-      TemplateURL: ./stack-tasks.yml
-
-  TaskStartStack:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        StartingLambdaExecutionRoleFriendlyName: !GetAtt HttpLambdaStack.Outputs.HttpLambdaExecutionRoleFriendlyName
-        DynamodbTableArn: !GetAtt TaskStack.Outputs.TableArn
-        StateMachineArn: !GetAtt TaskStack.Outputs.StateMachineArn
-      TemplateURL: ./stack-tasks-start.yml
 
   CloudFrontStack:
     Type: AWS::CloudFormation::Stack

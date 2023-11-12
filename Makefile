@@ -19,7 +19,9 @@ venv:
 deploy:
 	@echo "Did you mean 'make deploy-lambda'?"
 check: app/typeddicts.py
-	.venv/bin/cfn-lint stack-dns-zone.yml \
+	.venv/bin/mypy --check-untyped-defs .
+	.venv/bin/cfn-lint \
+	  stack-dns-zone.yml \
 	  serve/adapter/lambda_function/cloudfront/stack-lambda-url.yml \
 	  serve/adapter/lambda_function/cloudfront/stack-cloudfront.yml \
 	  stack-cloudformation-bucket.yml \
@@ -27,12 +29,12 @@ check: app/typeddicts.py
 	  serve/adapter/lambda_function/stack-api-gateway.yml \
 	  serve/adapter/lambda_function/stack-api-gateway-domain.yml \
 	  tasks/stack-tasks-start.yml
-	.venv/bin/cfn-lint stack-dns-zone.yml -i W3002 \
+	.venv/bin/cfn-lint -i W3002 -- \
 	  serve/adapter/lambda_function/stack-lambda.yml \
 	  tasks/stack-tasks.yml \
 	  serve/adapter/lambda_function/cloudfront/stack-cloudfront.template \
-	  serve/adapter/lambda_function/example.template
-	.venv/bin/mypy app/*.py test/*.py --check-untyped-defs
+	  serve/adapter/lambda_function/example.template \
+	  stack-deploy-lambda.template
 
 test: app/typeddicts.py $(OBJS)
 	PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py

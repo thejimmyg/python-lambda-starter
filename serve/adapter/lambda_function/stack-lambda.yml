@@ -9,9 +9,17 @@ Parameters:
   EncodedEnvironment:
     Description: An environment dictionary encoded as key|value, pairs. If key or value contains $ , or | they should be prepended with $ and base64 encoded
     Type: String
+    Default: ""
+
+  Layers:
+    Description: A space separated list of Layer ARNs including version
+    Type: String
+    Default: ""
+
 
 Conditions:
   SetReservedConcurrentExecutions: !Not [!Equals [!Ref ReservedConcurrency, -1]]
+  HasLayers: !Not [!Equals [!Ref Layers, ""]]
 
 Resources:
 
@@ -78,6 +86,10 @@ Resources:
       Runtime: python3.11
       Handler: serve.adapter.lambda_function.lambda_handler
       MemorySize: 128
+      Layers: !If
+        - HasLayers
+        - !Split [' ', !Ref Layers]
+        - !Ref AWS::NoValue
       Environment:
         Variables:
           ENCODED_ENVIRONMENT: !Ref EncodedEnvironment

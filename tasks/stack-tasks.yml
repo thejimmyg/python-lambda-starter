@@ -141,10 +141,10 @@ Resources:
     Properties:
       RoleArn: !GetAtt StatesExecutionRole.Arn
       Definition:
-        Comment: A Hello World example using an AWS Lambda function that retires and catches
-        StartAt: HelloWorld
+        Comment: Call a task-handling lambda function, retry on failure
+        StartAt: LambdaWithRetries
         States:
-          HelloWorld:
+          LambdaWithRetries:
             Type: Task
             Resource: !GetAtt TasksLambdaFunction.Arn
             Retry:

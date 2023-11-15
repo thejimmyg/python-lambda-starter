@@ -58,6 +58,7 @@ clean:
 	rm -f app/static/*.txt app/typeddicts.py
 	rm -f deploy/deploy*.yml
 	rm -f lambda.zip tasks-lambda.zip
+	rm -rf tmp
 	find app serve tasks kvstore -type d  -name __pycache__ -print0 | xargs -0 rm -rf
 
 tasks-lambda.zip: lambda.zip

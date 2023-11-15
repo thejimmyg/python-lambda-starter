@@ -49,12 +49,15 @@ def start_server(handlers: dict[str, Any], port=8000, host="localhost") -> None:
                 body=None,
                 status="200 OK",
                 headers={},
-                respond_early=RespondEarly,
+                RespondEarly=RespondEarly,
                 Base64=Base64,
             ),
             context=dict(uid=str(uuid.uuid4())),
         )
-        handler(http)
+        if handler(http) is not None:
+            print(
+                "Warning, app should not return a response. Did you return instead of setting http.response.body?"
+            )
         headers = {}
         for k, v in http.response.headers.items():
             k = "-".join([part.lower().capitalize() for part in k.split("-")])
@@ -94,7 +97,7 @@ def start_server(handlers: dict[str, Any], port=8000, host="localhost") -> None:
             start_response(http.response.status, list(headers.items()))
             return [body]
         else:
-            raise Exception(f"Unknown resposne type: {repr(http.response.body)}")
+            raise Exception(f"Unknown response type: {repr(http.response.body)}")
 
     with make_server(host, port, app, ThreadingWSGIServer) as httpd:
         print(f"Serving on host {repr(host)} port {repr(port)} ...")

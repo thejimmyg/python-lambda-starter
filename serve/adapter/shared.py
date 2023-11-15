@@ -32,7 +32,7 @@ class Response:
     status: str
     headers: dict[str, str]
     body: None | bytes | str | Renderable | dict | Base64
-    respond_early: type[RespondEarly]
+    RespondEarly: type[RespondEarly]
     Base64: type[Base64]
 
 

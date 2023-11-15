@@ -1,9 +1,38 @@
+import base64
 import os
 import time
 
+encoded_environment = os.environ.get("ENCODED_ENVIRONMENT", "")
+if encoded_environment:
+    for pair in encoded_environment.split(","):
+        if pair:
+            # print(pair)
+            pairs = pair.split("|")
+            # print(pairs)
+            if len(pairs) != 2:
+                print(
+                    f'Warning: The encoded environment pair {repr(pair)} is ignored becuase there are too many "|" characters. Please encode it properly'
+                )
+            else:
+                key = pairs[0]
+                value = pairs[1]
+                if key[0] == "$":
+                    key = base64.b64decode(key).decode("utf8")
+                if value[0] == "$":
+                    value = base64.b64decode(value).decode("utf8")
+                if key in os.environ:
+                    print(
+                        f"Warning: Key {repr(key)} already exists in environ with value {repr(os.environ[key])}. Replacing it with {repr(value)}."
+                    )
+                # print(key, value)
+                os.environ[key] = value
+# print(os.environ)
+
+
+# Must come after the environment is set up
 import tasks.driver
 
-from .shared import Error
+from ..shared import Error
 
 
 def make_lambda_handler(app_tasks):

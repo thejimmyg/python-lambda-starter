@@ -46,7 +46,8 @@ Resources:
     Properties:
       Parameters:
         TableName: Tasks
-      TemplateURL: tasks/stack-tasks.yml
+        EncodedEnvironment: !Sub 'PASSWORD|${Password}'
+      TemplateURL: tasks/adapter/lambda_function/stack-tasks.yml
 
   TaskStartStack:
     Type: AWS::CloudFormation::Stack
@@ -55,7 +56,7 @@ Resources:
         StartingLambdaExecutionRoleFriendlyName: !GetAtt HttpLambdaStack.Outputs.HttpLambdaExecutionRoleFriendlyName
         DynamodbTableArn: !GetAtt TaskStack.Outputs.TableArn
         StateMachineArn: !GetAtt TaskStack.Outputs.StateMachineArn
-      TemplateURL: tasks/stack-tasks-start.yml
+      TemplateURL: tasks/driver/stack-tasks-start.yml
 
   CertificateStack:
     Type: AWS::CloudFormation::Stack

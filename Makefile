@@ -28,10 +28,10 @@ check: app/typeddicts.py
 	  serve/adapter/lambda_function/stack-certificate.yml \
 	  serve/adapter/lambda_function/stack-api-gateway.yml \
 	  serve/adapter/lambda_function/stack-api-gateway-domain.yml \
-	  tasks/stack-tasks-start.yml
+	  tasks/driver/stack-tasks-start.yml
 	.venv/bin/cfn-lint -i W3002 -- \
 	  serve/adapter/lambda_function/stack-lambda.yml \
-	  tasks/stack-tasks.yml \
+	  tasks/adapter/lambda_function/stack-tasks.yml \
 	  serve/adapter/lambda_function/cloudfront/stack-cloudfront.template \
 	  serve/adapter/lambda_function/example.template \
 	  stack-deploy-lambda.template
@@ -43,7 +43,7 @@ test: app/typeddicts.py $(OBJS)
 format: format-python format-cfn
 
 format-python:
-	.venv/bin/isort . && .venv/bin/autoflake -r --in-place --remove-unused-variables --remove-all-unused-imports . && .venv/bin/black .
+	.venv/bin/autoflake -r --in-place --remove-unused-variables --remove-all-unused-imports . && .venv/bin/black .
 
 format-cfn:
 	cfn-format -w stack-* serve/adapter/lambda_function/stack-* serve/adapter/lambda_function/cloudfront/stack-* tasks/stack-*
@@ -55,18 +55,49 @@ endif
 	PYTHONPATH=. STORE_DIR=kvstore/driver .venv/bin/python3 serve/adapter/wsgi/bin/serve_wsgi.py
 
 clean:
-	rm -f app/static/*.txt app/typeddicts.py
-	rm -f deploy/deploy*.yml
+	rm -f app/static/*.txt app/typeddicts.py index.py
 	rm -f lambda.zip tasks-lambda.zip
-	rm -rf tmp
+	rm -rf tmp kvstore/driver/driver_key_value_store
 	find app serve tasks kvstore -type d  -name __pycache__ -print0 | xargs -0 rm -rf
 
-tasks-lambda.zip: lambda.zip
-	cp lambda.zip tasks-lambda.zip
+tasks-lambda.zip:
+	rm -rf tasks-lambda.zip
+	cp tasks/adapter/lambda_function/index.py .
+	zip \
+	  --exclude '*/__pycache__/*' \
+	  --exclude 'kvstore/driver/driver_key_value_store/*' \
+	  --exclude 'kvstore/driver/sqlite.py' \
+	  --exclude 'kvstore/driver/test.py' \
+	  --exclude 'serve/' \
+	  --exclude 'serve/**' \
+	  --exclude 'tasks/*.yml' \
+	  -r tasks-lambda.zip \
+	  app tasks serve kvstore index.py
+	rm index.py
 
 lambda.zip:
 	rm -rf lambda.zip
-	zip --exclude '*/__pycache__/*' -r lambda.zip app tasks serve kvstore
+	cp serve/adapter/lambda_function/index.py .
+	zip \
+	  --exclude '*/__pycache__/*' \
+	  --exclude 'kvstore/driver/driver_key_value_store/*' \
+	  --exclude 'kvstore/driver/sqlite.py' \
+	  --exclude 'kvstore/driver/test.py' \
+	  --exclude 'serve/adapter/lambda_function/*.md' \
+	  --exclude 'serve/adapter/lambda_function/*.sh' \
+	  --exclude 'serve/adapter/lambda_function/*.template' \
+	  --exclude 'serve/adapter/lambda_function/*.yml' \
+	  --exclude 'serve/adapter/lambda_function/cloudfront' \
+	  --exclude 'serve/adapter/lambda_function/cloudfront/**' \
+	  --exclude 'serve/adapter/lambda_function/index.py' \
+	  --exclude 'serve/adapter/wsgi' \
+	  --exclude 'serve/adapter/wsgi/*' \
+	  --exclude 'tasks/*.yml' \
+	  --exclude 'tasks/adapter' \
+	  --exclude 'tasks/adapter/**' \
+	  -r lambda.zip \
+	  app tasks serve kvstore index.py
+	rm index.py
 
 deploy-check-env-aws:
 ifndef AWS_REGION
@@ -117,6 +148,7 @@ deploy-lambda: deploy-check-env clean all check test lambda.zip tasks-lambda.zip
 	        "ThrottlingRateLimit=50" \
 	        "ThrottlingBurstLimit=200" \
 	        "Password=${PASSWORD}"
+	curl -v https://apps.jimmyg.org
 	PYTHONPATH=. .venv/bin/python3 test/smoke.py "https://${DOMAIN}"
 
 

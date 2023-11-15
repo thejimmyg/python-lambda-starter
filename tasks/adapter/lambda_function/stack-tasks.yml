@@ -9,6 +9,20 @@ Parameters:
     Default: Tasks
     MinLength: "1"
 
+  Layers:
+    Description: A space separated list of Layer ARNs including version
+    Type: String
+    Default: ""
+
+  EncodedEnvironment:
+    Description: An environment dictionary encoded as key|value, pairs. If key or value contains $ , or | they should be prepended with $ and base64 encoded
+    Type: String
+    Default: ""
+
+Conditions:
+  HasLayers: !Not [!Equals [!Ref Layers, ""]]
+
+
 Resources:
   TasksLambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -25,22 +39,24 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Role: !GetAtt TasksLambdaExecutionRole.Arn
-      Code: ../tasks-lambda.zip
+      Code: ../../../tasks-lambda.zip
       Runtime: python3.11
       Timeout: 900
-      Handler: tasks.adapter.lambda_function.lambda_handler
+      Handler: index.lambda_handler
       Architectures:
         - arm64
+      Layers: !If
+        - HasLayers
+        - !Split [' ', !Ref Layers]
+        - !Ref AWS::NoValue
       Environment:
         Variables:
-          KVSTORE_DYNAMODB_TABLE_NAME: !Sub '${AWS::StackName}-${TableName}'
-
-          # How much time to make sure is still available (the DELAY_MS value gets added on top of this)
-          SAFETY_MULTIPLE: 1.4
-          SAFETY_DELAY_MS: 0
-
-          # How many ms to wait after each task
-          DELAY_MS: 0
+          ENCODED_ENVIRONMENT: !Sub 'KVSTORE_DYNAMODB_TABLE_NAME|${AWS::StackName}-${TableName},SAFETY_MULTIPLE|1.4,SAFETY_DELAY_MS|0,DELAY_MS|0,${EncodedEnvironment}'
+          # # How much time to make sure is still available (the DELAY_MS value gets added on top of this)
+          # SAFETY_MULTIPLE: 1.4
+          # SAFETY_DELAY_MS: 0
+          # # How many ms to wait after each task
+          # DELAY_MS: 0
 
   DynamoTable:
     Type: AWS::DynamoDB::Table

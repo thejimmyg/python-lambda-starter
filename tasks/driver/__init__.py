@@ -1,6 +1,6 @@
 import os
 
-if os.environ.get("TASKS_STATE_MACHINE_ARN") and os.environ.get("AWS_REGION"):
+if os.environ.get("TASKS_STATE_MACHINE_ARN"):
     from .kvstore_aws_step_functions import (
         begin_state_machine,
         begin_task,

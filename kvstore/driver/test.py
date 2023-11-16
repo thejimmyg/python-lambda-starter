@@ -4,8 +4,7 @@
 import math
 import time
 
-from kvstore.driver import delete, iterate, patch, put
-from kvstore.driver.shared import NotFoundInStoreDriver, Remove
+from kvstore.driver import delete, iterate, patch, put, NotFound, Remove
 
 store = "test"
 
@@ -245,7 +244,7 @@ def main():
     time.sleep(1.1)
     try:
         print("===", iterate(store=store, pk="foo3", consistent=True))
-    except NotFoundInStoreDriver:
+    except NotFound:
         print("Cannot print foo3 since it has already expired")
     else:
         raise Exception("Showed the foo3 result when it should have expired")
@@ -254,7 +253,7 @@ def main():
     delete(store=store, pk="foo4")
     try:
         print(iterate(store=store, pk="foo4", consistent=True))
-    except NotFoundInStoreDriver:
+    except NotFound:
         print("Cannot print foo4 since it has been successfully deleted")
     else:
         raise Exception("Showed the foo4 result when it should have expired")
@@ -343,7 +342,7 @@ def main():
             results, next_ = iterate(
                 store=store, pk="multiple", sk_start="/1", limit=2, consistent=True
             )
-        except NotFoundInStoreDriver:
+        except NotFound:
             pass
         else:
             raise Exception(

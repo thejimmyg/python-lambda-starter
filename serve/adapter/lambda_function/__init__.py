@@ -10,7 +10,7 @@ if encoded_environment:
             # print(pairs)
             if len(pairs) != 2:
                 print(
-                    f'Warning: The encoded environment pair {repr(pair)} is ignored becuase there are too many "|" characters. Please encode it properly'
+                    f'Warning: The encoded environment pair {repr(pair)} is ignored becuase there is not exaclty one "|" character. Please encode it properly'
                 )
             else:
                 key = pairs[0]
@@ -38,6 +38,8 @@ def make_lambda_handler(app):
         path = event["rawPath"]
         query = event["rawQueryString"]
         request_headers = event["headers"]
+        if event.get("cookies"):
+            request_headers["cookie"] = "; ".join(event["cookies"])
         request_body = None
         if event.get("body"):
             if event.get("isBase64Encoded"):
@@ -62,9 +64,10 @@ def make_lambda_handler(app):
             request=request, response=response, context=dict(uid=context.aws_request_id)
         )
         try:
-            if app(http) is not None:
+            returned_value = app(http)
+            if returned_value is not None:
                 print(
-                    "Warning, app should not return a response. Did you return instead of setting http.response.body?"
+                    f"Warning, app should not return a response. Did you return instead of setting http.response.body? Returned value was: {repr(returned_value)}"
                 )
         except RespondEarly:
             pass

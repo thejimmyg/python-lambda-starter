@@ -5,7 +5,7 @@ import time
 from threading import RLock
 from typing import Any
 
-from .shared import NotFoundInStoreDriver, Remove
+from .shared import NotFound, Remove
 
 config_store_dir = os.environ["STORE_DIR"]
 config_driver_key_value_store_dir = os.path.join(
@@ -84,6 +84,11 @@ def put(store: str, pk: str, data, sk="/", ttl=None):
     assert _conn is not None, "Database not initilaized, no _conn object."
     assert _cur is not None, "Database not initilaized, no _cur object."
     assert sk[0] == "/"
+    for k, v in data.items():
+        assert type(k) is str, f"Expected key {repr(k)} to be a string"
+        assert isinstance(
+            v, (float, int, str)
+        ), f"Expected key {repr(k)} value to be a float, int or str. It is: {repr(v)}."
     cols = ["store", "pk", "sk", "ttl", "data"]
     values = [store, pk, sk, ttl, json.dumps(dict(data))]
     size = len(store) + 1 + len(pk) + len(pk) + len(str(ttl or "")) + len(values[-1])
@@ -161,7 +166,7 @@ def iterate(
         rows = _cur.fetchall()
         # helper_log(__file__, len(rows), rows)
         if len(rows) == 0:
-            raise NotFoundInStoreDriver(f"No such pk '{pk}' in the '{store}' store")
+            raise NotFound(f"No such pk '{pk}' in the '{store}' store")
         results: list[tuple[str, dict[str, Any], int]] = []
         size = 0
         last_row = None
@@ -185,6 +190,11 @@ def patch(store, pk, data, sk="/", ttl="notchanged"):
     assert sk[0] == "/"
     if ttl not in ["notchanged", None]:
         assert isinstance(ttl, (int, float)), ttl
+    for k, v in data.items():
+        assert type(k) is str, f"Expected key {repr(k)} to be a string"
+        assert (
+            isinstance(v, (float, int, str)) or v is Remove
+        ), f"Expected key {repr(k)} value to be a float, int, str or kvstore.driver.Remove. It is: {repr(v)}."
     # XXX This should be safe without a transaction because of the RLock? Unless the same thread makes requests concurrently.
     current, next = iterate(store, pk, sk_start=sk, limit=1, consistent=False)
     assert next is None, next

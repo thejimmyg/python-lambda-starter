@@ -4,7 +4,7 @@ from typing import Any
 
 import boto3
 
-from .shared import NotFoundInStoreDriver, Remove
+from .shared import NotFound, Remove
 
 dynamodb = boto3.client(service_name="dynamodb", region_name=os.environ["AWS_REGION"])
 
@@ -197,7 +197,7 @@ def iterate(
         data = _data_from_dynamo_format(item)
         results.append((sk, data, ttl))
     if len(results) == 0 and not r.get("LastEvaluatedKey"):
-        raise NotFoundInStoreDriver(f"No such pk '{pk}' in the '{store}' store")
+        raise NotFound(f"No such pk '{pk}' in the '{store}' store")
     if len(results) == limit:
         return results, None
     else:

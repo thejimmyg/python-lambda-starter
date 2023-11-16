@@ -11,7 +11,7 @@ if encoded_environment:
             # print(pairs)
             if len(pairs) != 2:
                 print(
-                    f'Warning: The encoded environment pair {repr(pair)} is ignored becuase there are too many "|" characters. Please encode it properly'
+                    f'Warning: The encoded environment pair {repr(pair)} is ignored becuase there is not exaclty one "|" character. Please encode it properly'
                 )
             else:
                 key = pairs[0]

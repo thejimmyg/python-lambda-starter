@@ -1,4 +1,4 @@
-class NotFoundInStoreDriver(Exception):
+class NotFound(Exception):
     pass
 
 

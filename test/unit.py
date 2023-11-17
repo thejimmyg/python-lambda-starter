@@ -149,7 +149,7 @@ def test_api():
             request=Request(
                 path="/api/submit_input",
                 query="",
-                headers={},
+                headers={"authorization": "secret"},
                 method="post",
                 body=json.dumps({"id": 123, "password": os.environ["PASSWORD"]}).encode(
                     "utf8"

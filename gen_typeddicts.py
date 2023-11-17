@@ -2,8 +2,8 @@ import json
 import warnings
 from typing import Any, Literal, NotRequired, Optional, TypedDict
 
-SecurityDefinition = TypedDict(
-    "SecurityDefinition",
+SecurityScheme = TypedDict(
+    "SecurityScheme",
     {
         "type": Literal["apiKey"],
         "in": Literal["header"],
@@ -18,7 +18,7 @@ JsonschemaObject = TypedDict(
         "type": "object",
         "properties": dict[str, dict[str, str]],
         "required": NotRequired[list[str]],
-        "securityDefinitions": list[SecurityDefinition],
+        "securitySchemes": list[SecurityScheme],
     },
 )
 
@@ -65,22 +65,8 @@ Operation = TypedDict(
 def generate_warnings(filename: str, openapi: dict[str, Any]):
     assert openapi["openapi"] == "3.0.1", openapi["openapi"]
     for key in openapi:
-        if key not in ["openapi", "components", "paths", "securityDefinitions"]:
+        if key not in ["openapi", "components", "paths"]:
             warnings.warn(f"{repr(filename)} OpenAPI key {repr(key)} is ignored.")
-    for security_definition in openapi.get("securityDefinitions", {}).values():
-        for security_definition_key in security_definition.keys():
-            if security_definition_key not in ["type", "in", "name"]:
-                warnings.warn(
-                    f"{repr(filename)} OpenAPI 'securityDefinitions' item {repr(security_definition)} has a key {repr(security_definition_key)} which is ignored."
-                )
-            assert security_definition["type"] == "apiKey", security_definition["type"]
-            assert security_definition["in"] == "header", security_definition["in"]
-            assert type(security_definition["name"]) is str, security_definition
-    for key in openapi["components"]:
-        if key not in ["schemas"]:
-            warnings.warn(
-                f"{repr(filename)} OpenAPI 'components' key {repr(key)} is ignored."
-            )
     for title in openapi["components"]["schemas"].keys():
         jsonschema = openapi["components"]["schemas"][title]
         for key in jsonschema:
@@ -97,6 +83,20 @@ def generate_warnings(filename: str, openapi: dict[str, Any]):
                     warnings.warn(
                         f"{repr(filename)} OpenAPI components/schemas {repr(title)} properties {repr(property)} {repr(property_key)} is ignored."
                     )
+    for security_scheme in openapi["components"].get("securitySchemes", {}).values():
+        for security_scheme_key in security_scheme.keys():
+            if security_scheme_key not in ["type", "in", "name"]:
+                warnings.warn(
+                    f"{repr(filename)} OpenAPI 'securitySchemes' item {repr(security_scheme)} has a key {repr(security_scheme_key)} which is ignored."
+                )
+            assert security_scheme["type"] == "apiKey", security_scheme["type"]
+            assert security_scheme["in"] == "header", security_scheme["in"]
+            assert type(security_scheme["name"]) is str, security_scheme
+    for key in openapi["components"]:
+        if key not in ["schemas", "securitySchemes"]:
+            warnings.warn(
+                f"{repr(filename)} OpenAPI 'components' key {repr(key)} is ignored."
+            )
     for path in openapi["paths"]:
         for method in openapi["paths"][path]:
             assert method in ["get", "post"], method
@@ -285,13 +285,22 @@ def print_handler(prefix, openapi):
 
     operations_str = ", " + (
         ", ".join(
-            [
-                f"{sd['name'].replace('-', '_').lower()}: str"
-                for sd in openapi.get("securityDefinitions", {}).values()
-            ]
-            + [f"{op}: Any" for op in operations]
+            # [
+            #     f"{sd['name'].replace('-', '_').lower()}: str"
+            #     for sd in openapi.get("securitySchemes", {}).values()
+            # ]
+            # +
+            [f"{op}: Any" for op in operations]
         )
     )
+    if openapi["components"].get("securitySchemes", {}):
+        operations_str += ", validate_security: Any"
+        security_str = ", ".join(
+            [
+                f"{sd['name'].replace('-', '_').lower()}=http.request.headers['{sd['name'].lower()}']"
+                for sd in openapi["components"].get("securitySchemes", {}).values()
+            ]
+        )
 
     print(f"def make_{prefix}_handler(base_path: str" + operations_str + ") -> Any:")
     print(f"    def {prefix}_handler(http: Any) -> None:")
@@ -304,6 +313,9 @@ def print_handler(prefix, openapi):
     print(
         '        http.response.headers["Content-Type"] = "application/json; charset=utf-8"'
     )
+    for sd in openapi["components"].get("securitySchemes", {}).values():
+        print(f"        validated_security = validate_security(http, {security_str})")
+
     print("        method = http.request.method.lower()")
     print("        openapi_path = http.request.path[len(base_path):]")
 
@@ -340,11 +352,9 @@ def print_handler(prefix, openapi):
                     for p in operation.get("parameters", [])
                     if p["in"] == "query" and p.get("required", False)
                 ]
-                + [
-                    f'{sd["name"].replace("-", "_").lower()}={sd["name"].replace("-", "_").lower()}'
-                    for sd in openapi.get("securityDefinitions", dict()).values()
-                ]
             )
+            if openapi["components"].get("securitySchemes", {}):
+                param_args.append("validated_security=validated_security")
 
             if path_param_strings:
                 print(
@@ -430,7 +440,7 @@ def main(prefix, filename):
                     type=jsonschema["type"],
                     properties=jsonschema["properties"],
                     required=jsonschema.get("required"),
-                    securityDefinitions=openapi.get("securityDefinitions", {}),
+                    securitySchemes=openapi["components"].get("securitySchemes", {}),
                 )
             )
 
@@ -563,13 +573,13 @@ def main(prefix, filename):
         headers: list[tuple[str, bool]] = []
         url_replace_lines = [f"    url = base_url + '{operation['path']}'"]
         # Add in the security definitions first
-        for security_definition in jsonschema["securityDefinitions"].values():
-            arg = f"{security_definition['name'].replace('-', '_').lower()}: str"
-            args.append((0, len(args), arg, security_definition["name"]))
-            assert (
-                security_definition["name"].lower() != "content-type"
-            ), security_definition["name"].lower()
-            headers.append((security_definition["name"], True))
+        for security_scheme in jsonschema["securitySchemes"].values():
+            arg = f"{security_scheme['name'].replace('-', '_').lower()}: str"
+            args.append((0, len(args), arg, security_scheme["name"]))
+            assert security_scheme["name"].lower() != "content-type", security_scheme[
+                "name"
+            ].lower()
+            headers.append((security_scheme["name"], True))
         # Prepare all the parameters
         for parameter in operation["parameters"]:
             if parameter.get("in") in ["path", "query", "header"]:

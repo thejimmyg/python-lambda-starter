@@ -2,7 +2,9 @@ def test_submit_input() -> None:
     from app.typeddicts import SubmitInput, app_submit_input
 
     result = app_submit_input(
-        "http://localhost:8000/api", SubmitInput(id=1, password="password")
+        "http://localhost:8000/api",
+        SubmitInput(id=1, password="password"),
+        authorization="secret",
     )
     assert "workflow_id" in result and type(result["workflow_id"]) is str, result
 

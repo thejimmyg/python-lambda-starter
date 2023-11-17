@@ -108,7 +108,9 @@ def test_api_submit_input(lambda_url):
     import urllib.request
 
     data = json.dumps({"password": os.environ["PASSWORD"], "id": 123}).encode("utf8")
-    req = urllib.request.Request(lambda_url + "/api/submit_input", data=data)
+    req = urllib.request.Request(
+        lambda_url + "/api/submit_input", data=data, headers={"authorization": "secret"}
+    )
     with urllib.request.urlopen(req) as response:
         assert (
             "Content-Type",
@@ -119,7 +121,9 @@ def test_api_submit_input(lambda_url):
 
     # id is a string this time, not an integer
     data = json.dumps({"password": os.environ["PASSWORD"], "id": "123"}).encode("utf8")
-    req = urllib.request.Request(lambda_url + "/api/submit_input", data=data)
+    req = urllib.request.Request(
+        lambda_url + "/api/submit_input", data=data, headers={"authorization": "secret"}
+    )
     try:
         with urllib.request.urlopen(req) as response:
             raise Exception(
@@ -141,6 +145,7 @@ def test_sdk_submit_input(lambda_url):
     result = app_submit_input(
         base_url=lambda_url + "/api",
         request_data=SubmitInput(password=os.environ["PASSWORD"], id=1),
+        authorization="secret",
     )
     assert "workflow_id" in result, result
 

@@ -4,6 +4,7 @@ This is an extraction of the core ideas in [python-auth-tools](https://github.co
 
 The intention is to merge both projects over time so that python-auth-tools can be deployed on Lambda or standalone.
 
+TODO: Test an invalid authorizatioin header in the tests
 
 ## Principles
 

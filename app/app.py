@@ -1,8 +1,18 @@
 from . import operation, web
 from .typeddicts import make_app_handler
 
+
+def validate_security(http, authorization):
+    if authorization == "secret":
+        return True
+    raise http.response.RespondEarly("No authenticated")
+
+
 app_handler = make_app_handler(
-    "/api", submit_input=operation.submit_input, progress=operation.progress
+    "/api",
+    submit_input=operation.submit_input,
+    progress=operation.progress,
+    validate_security=validate_security,
 )
 
 

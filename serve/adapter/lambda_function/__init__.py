@@ -37,6 +37,7 @@ def make_lambda_handler(app):
         method = event["requestContext"]["http"]["method"].lower()
         path = event["rawPath"]
         query = event["rawQueryString"]
+        # These are lower-case already in lambda
         request_headers = event["headers"]
         if event.get("cookies"):
             request_headers["cookie"] = "; ".join(event["cookies"])

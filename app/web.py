@@ -65,7 +65,8 @@ def submit(http):
     if http.request.method == "post":
         q = urllib.parse.parse_qs(http.request.body.decode("utf8"))
         result = operation.submit_input(
-            {"password": q["password"][0], "id": int(q["id"][0])}
+            {"password": q["password"][0], "id": int(q["id"][0])},
+            validated_security=True,
         )
         body = (
             Html('<p>Submission in progress ... <a href="/progress?workflow_id=')
@@ -88,7 +89,9 @@ import json
 def progress(http):
     q = urllib.parse.parse_qs(http.request.query)
     workflow_id = q["workflow_id"][0]
-    progress_response = operation.progress(workflow_id=workflow_id)
+    progress_response = operation.progress(
+        workflow_id=workflow_id, validated_security=True
+    )
     http.response.body = Main("Progress", main=json.dumps(progress_response))
 
 

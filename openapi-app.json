@@ -55,6 +55,13 @@
     }
   },
   "components": {
+    "securitySchemes": {
+        "access_token": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "Authorization"
+        }
+    },
     "schemas": {
       "SubmitInput": {
         "type": "object",

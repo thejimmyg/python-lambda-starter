@@ -2,6 +2,15 @@ import json
 import warnings
 from typing import Any, Literal, NotRequired, Optional, TypedDict
 
+SecurityDefinition = TypedDict(
+    "SecurityDefinition",
+    {
+        "type": Literal["apiKey"],
+        "in": Literal["header"],
+        "name": str,
+    },
+)
+
 JsonschemaObject = TypedDict(
     "JsonschemaObject",
     {
@@ -9,6 +18,7 @@ JsonschemaObject = TypedDict(
         "type": "object",
         "properties": dict[str, dict[str, str]],
         "required": NotRequired[list[str]],
+        "securityDefinitions": list[SecurityDefinition],
     },
 )
 
@@ -19,6 +29,7 @@ Schema = TypedDict(
         "format": Optional[Literal["mask"]],
     },
 )
+
 Parameter = TypedDict(
     "Parameter",
     {
@@ -54,8 +65,17 @@ Operation = TypedDict(
 def generate_warnings(filename: str, openapi: dict[str, Any]):
     assert openapi["openapi"] == "3.0.1", openapi["openapi"]
     for key in openapi:
-        if key not in ["openapi", "components", "paths"]:
+        if key not in ["openapi", "components", "paths", "securityDefinitions"]:
             warnings.warn(f"{repr(filename)} OpenAPI key {repr(key)} is ignored.")
+    for security_definition in openapi.get("securityDefinitions", {}).values():
+        for security_definition_key in security_definition.keys():
+            if security_definition_key not in ["type", "in", "name"]:
+                warnings.warn(
+                    f"{repr(filename)} OpenAPI 'securityDefinitions' item {repr(security_definition)} has a key {repr(security_definition_key)} which is ignored."
+                )
+            assert security_definition["type"] == "apiKey", security_definition["type"]
+            assert security_definition["in"] == "header", security_definition["in"]
+            assert type(security_definition["name"]) is str, security_definition
     for key in openapi["components"]:
         if key not in ["schemas"]:
             warnings.warn(
@@ -263,7 +283,15 @@ def print_handler(prefix, openapi):
         for method in openapi["paths"][path]:
             operations.append(openapi["paths"][path][method]["operationId"])
 
-    operations_str = ", " + (", ".join([f"{op}: Any" for op in operations]))
+    operations_str = ", " + (
+        ", ".join(
+            [
+                f"{sd['name'].replace('-', '_').lower()}: str"
+                for sd in openapi.get("securityDefinitions", {}).values()
+            ]
+            + [f"{op}: Any" for op in operations]
+        )
+    )
 
     print(f"def make_{prefix}_handler(base_path: str" + operations_str + ") -> Any:")
     print(f"    def {prefix}_handler(http: Any) -> None:")
@@ -271,7 +299,10 @@ def print_handler(prefix, openapi):
         "        assert http.request.path.startswith(base_path), (base_path, http.request.path)"
     )
     print(
-        '        http.response.headers["content-type"] = "application/json; charset=utf-8"'
+        "        query = dict([(k, v[-1]) for k, v in parse_qs(http.request.query).items()])"
+    )
+    print(
+        '        http.response.headers["Content-Type"] = "application/json; charset=utf-8"'
     )
     print("        method = http.request.method.lower()")
     print("        openapi_path = http.request.path[len(base_path):]")
@@ -290,14 +321,31 @@ def print_handler(prefix, openapi):
                 for p in operation.get("parameters", [])
                 if p["in"] == "path"
             ]
-            param_args = [
-                p["name"]
-                + f'={operation["operationId"]}_params.get("'
-                + p["name"]
-                + '")'
-                for p in operation.get("parameters", [])
-                if p["in"] == "path"
-            ]
+            param_args = (
+                [
+                    p["name"]
+                    + f'={operation["operationId"]}_params.get("'
+                    + p["name"]
+                    + '")'
+                    for p in operation.get("parameters", [])
+                    if p["in"] == "path"
+                ]
+                + [
+                    p["name"] + '=query.get("' + p["name"] + '")'
+                    for p in operation.get("parameters", [])
+                    if p["in"] == "query" and p.get("required", False) is False
+                ]
+                + [
+                    p["name"] + '=query["' + p["name"] + '"]'
+                    for p in operation.get("parameters", [])
+                    if p["in"] == "query" and p.get("required", False)
+                ]
+                + [
+                    f'{sd["name"].replace("-", "_").lower()}={sd["name"].replace("-", "_").lower()}'
+                    for sd in openapi.get("securityDefinitions", dict()).values()
+                ]
+            )
+
             if path_param_strings:
                 print(
                     f'            {operation["operationId"]}_params = path_matches(openapi_path, "{path}", ['
@@ -313,18 +361,18 @@ def print_handler(prefix, openapi):
             if "requestBody" in operation:
                 print(f"                try:")
                 print(
-                    f'                    body = json.loads( http.request.body.decode("utf8"))'
+                    f'                    body = json.loads(http.request.body.decode("utf8"))'
                 )
                 print(f"                    assert is_SubmitInput(body), body")
                 print(f"                except Exception as e:")
                 print(f"                    print(e)")
                 print(
-                    f'                    http.response.headers["content-type"] = "text/plain"'
+                    f'                    http.response.headers["Content-Type"] = "text/plain"'
                 )
                 print(f'                    http.response.status = "400 Invalid data"')
                 print(f'                    http.response.body = b"Invalid data"')
                 print(f"                else:")
-                if path_param_strings:
+                if param_args:
                     print(
                         f'                    http.response.body = {operation["operationId"]}(body, {", ".join(param_args)})'
                     )
@@ -333,7 +381,7 @@ def print_handler(prefix, openapi):
                         f'                    http.response.body = {operation["operationId"]}(body)'
                     )
             else:
-                if path_param_strings:
+                if param_args:
                     print(
                         f'                http.response.body = {operation["operationId"]}({", ".join(param_args)})'
                     )
@@ -345,7 +393,7 @@ def print_handler(prefix, openapi):
     print("        http.response.status = '404 Not Found'")
     print("        http.response.body = 'Not Found'")
     print(
-        "        http.response.headers = {'content-type': 'text/plain; charset=UTF-8'}"
+        "        http.response.headers = {'Content-Type': 'text/plain; charset=UTF-8'}"
     )
     print(f"    return {prefix}_handler")
 
@@ -355,7 +403,10 @@ def main(prefix, filename):
     operations: list[Operation] = []
     openapis = {}
     with open(filename, "r") as fp:
-        openapi = json.loads(fp.read())
+        try:
+            openapi = json.loads(fp.read())
+        except Exception as e:
+            raise Exception(f"Failed to load {filename}. {e}")
         openapis[prefix] = openapi
         generate_warnings(filename, openapi)
         for path in openapi["paths"]:
@@ -379,6 +430,7 @@ def main(prefix, filename):
                     type=jsonschema["type"],
                     properties=jsonschema["properties"],
                     required=jsonschema.get("required"),
+                    securityDefinitions=openapi.get("securityDefinitions", {}),
                 )
             )
 
@@ -506,18 +558,30 @@ def main(prefix, filename):
         print("        return False")
 
     for operation in operations:
-        args: list[tuple[int, int, str]] = []
+        args: list[tuple[int, int, str, str]] = []
         query = []
-        headers = []
+        headers: list[tuple[str, bool]] = []
         url_replace_lines = [f"    url = base_url + '{operation['path']}'"]
-        for i, parameter in enumerate(operation["parameters"]):
+        # Add in the security definitions first
+        for security_definition in jsonschema["securityDefinitions"].values():
+            arg = f"{security_definition['name'].replace('-', '_').lower()}: str"
+            args.append((0, len(args), arg, security_definition["name"]))
+            assert (
+                security_definition["name"].lower() != "content-type"
+            ), security_definition["name"].lower()
+            headers.append((security_definition["name"], True))
+        # Prepare all the parameters
+        for parameter in operation["parameters"]:
             if parameter.get("in") in ["path", "query", "header"]:
-                arg = f"{parameter['name'].replace('-', '_')}: {jsonschema_types_to_python_types[parameter['schema']['type']]}"
+                if parameter.get("in") == "header":
+                    arg = f"{parameter['name'].replace('-', '_').lower()}: {jsonschema_types_to_python_types[parameter['schema']['type']]}"
+                else:
+                    arg = f"{parameter['name'].replace('-', '_')}: {jsonschema_types_to_python_types[parameter['schema']['type']]}"
                 if parameter.get("required") is not True:
                     arg += "|None=None"
-                    args.append((1, i, arg))
+                    args.append((1, len(args), arg, arg))
                 else:
-                    args.append((0, i, arg))
+                    args.append((0, len(args), arg, arg))
                 if parameter.get("in") == "path":
                     url_replace_lines.append(
                         "    url = url.replace('{"
@@ -537,10 +601,13 @@ def main(prefix, filename):
                             f'        query["{parameter["name"]}"] = str({parameter["name"]})'
                         )
                 else:
-                    assert parameter["name"].lower() != "content-type"
-                    headers.append(
-                        (parameter["name"], parameter.get("requried", False))
-                    )
+                    assert parameter["name"].lower() != "content-type", parameter[
+                        "name"
+                    ].lower()
+                    if parameter.get("requried", False):
+                        headers.append((parameter["name"], True))
+                    else:
+                        headers.append((parameter["name"], False))
 
         arg_strs: list[str] = [arg[2] for arg in sorted(args)]
         fn = f"def {prefix}_{operation['operationId']}(base_url: str"
@@ -556,14 +623,18 @@ def main(prefix, filename):
                 print("\n".join(query))
                 print("    url += '?' + urlencode(query)")
 
-            print("    headers={'content-type': 'application/json' }")
+            print("    headers={'Content-Type': 'application/json' }")
             if headers:
                 for name, required in headers:
                     if required:
-                        print(f"    headers['{name}'] = {name.replace('-', '_')}")
+                        print(
+                            f"    headers['{name}'] = {name.replace('-', '_').lower()}"
+                        )
                     else:
-                        print(f"    if  {name.replace('-', '_')}:")
-                        print(f"        headers['{name}'] = {name.replace('-', '_')}")
+                        print(f"    if {name.replace('-', '_').lower()}:")
+                        print(
+                            f"        headers['{name}'] = {name.replace('-', '_').lower()}"
+                        )
 
             if operation.get("requestBody"):
                 print(
@@ -627,7 +698,8 @@ def main(prefix, filename):
             fn += f"request_data: {operation['requestBody']['content']['application/json']['schema']['$ref'][len('#/components/schemas/'):]}, "
         if args:
             fn += (", ".join(arg_strs)) + ", "
-        fn = fn[:-2]
+        if args or operation.get("requestBody"):
+            fn = fn[:-2]
         if "$ref" in schema:
             t = schema["$ref"][len("#/components/schemas/") :]
             print(fn + f") -> {t}:")
@@ -652,7 +724,7 @@ if __name__ == "__main__":
 
     print("from typing import TypedDict, TypeGuard, NotRequired, Any")
     print("from urllib.request import Request, urlopen")
-    print("from urllib.parse import urlencode")
+    print("from urllib.parse import urlencode, parse_qs")
     print("import json")
     print()
     print()

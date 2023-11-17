@@ -3,28 +3,54 @@
   "paths": {
     "/submit_input": {
       "post": {
-	"operationId": "submit_input",
-	"requestBody": {
+        "operationId": "submit_input",
+        "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SubmitInput"
-	      }
-	    }
-	  }
-	},
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-		}
-	      }
-	    }
-	  }
-	}
+                  "$ref": "#/components/schemas/SubmitInputResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/progress": {
+      "get": {
+        "operationId": "progress",
+        "parameters": [
+            {
+                "name": "workflow_id",
+                "in": "query",
+                "required": true,
+                "schema": {
+                    "type": "string"
+                }
+            }
+	],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressResponse"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -34,19 +60,78 @@
         "type": "object",
         "properties": {
           "password": {
-              "type": "string",
-              "description": "The password to authorize this request."
+            "type": "string",
+            "description": "The password to authorize this request."
           },
-          "id": {"type": "integer", "description": "The ID of the object to submit"}
+          "id": {
+            "type": "integer",
+            "description": "The ID of the object to submit"
+          }
         }
       },
-      "ApiResponse": {
+      "SubmitInputResponse": {
         "type": "object",
-        "required": ["success"],
+        "required": [
+          "workflow_id"
+        ],
         "properties": {
-          "success": {
-            "type": "boolean",
-            "description": "Whether the request succeded or not."
+          "workflow_id": {
+            "type": "string",
+            "description": "The ID of the workflow"
+          }
+        }
+      },
+      "ProgressResponse": {
+        "type": "object",
+        "required": [
+          "workflow_id", "num_tasks", "begin"
+        ],
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "description": "The ID of the workflow made up from a date and a unique ID"
+          },
+          "num_tasks": {
+            "type": "integer",
+            "description": "The number of tasks that need completing"
+          },
+          "begin": {
+            "type": "string",
+            "description": "An ISO format date representing the start date and time of the workflow"
+          },
+          "end": {
+            "type": "string",
+            "description": "An ISO format date representing the end date and time of the workflow"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskStatus"
+            }
+          }
+        }
+      },
+      "TaskStatus": {
+        "type": "object",
+        "required": [
+          "task", "remaining", "begin"
+        ],
+        "properties": {
+          "remaining": {
+            "type": "integer",
+            "description": "The number of tasks remaining after this one"
+          },
+          "task": {
+            "type": "integer",
+            "description": "The number of this task"
+          },
+          "begin": {
+            "type": "string",
+            "description": "An ISO format date representing the start date and time of the task"
+          },
+          "end": {
+            "type": "string",
+            "description": "An ISO format date representing the end date and time of the task"
           }
         }
       }

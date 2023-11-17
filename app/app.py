@@ -1,12 +1,22 @@
 from . import operation, web
 from .typeddicts import make_app_handler
 
-app_handler = make_app_handler("/api", submit_input=operation.submit_input)
+app_handler = make_app_handler(
+    "/api", submit_input=operation.submit_input, progress=operation.progress
+)
+
+
+handle_static = web.make_handle_static("/static/")
+handle_favicon = web.make_handle_static("/")
 
 
 def app(http):
     if http.request.path == "/":
         web.home(http)
+    elif http.request.path == "/favicon.ico":
+        handle_favicon(http)
+    elif http.request.path == "/test":
+        web.test(http)
     elif http.request.path == "/bytes":
         web.test_bytes(http)
     elif http.request.path == "/html":
@@ -18,7 +28,7 @@ def app(http):
     elif http.request.path == "/other":
         web.test_other(http)
     elif http.request.path.startswith("/static/"):
-        web.handle_static(http)
+        handle_static(http)
     elif http.request.path.startswith("/submit"):
         web.submit(http)
     elif http.request.path.startswith("/progress"):

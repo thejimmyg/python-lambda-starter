@@ -115,9 +115,7 @@ def test_api_submit_input(lambda_url):
             "application/json",
         ) in response.getheaders(), response.getheaders()
         response_body = response.read()
-        assert json.loads(response_body.decode("utf8")) == {
-            "success": True
-        }, response_body
+        assert "workflow_id" in json.loads(response_body.decode("utf8")), response_body
 
     # id is a string this time, not an integer
     data = json.dumps({"password": os.environ["PASSWORD"], "id": "123"}).encode("utf8")
@@ -144,7 +142,7 @@ def test_sdk_submit_input(lambda_url):
         base_url=lambda_url + "/api",
         request_data=SubmitInput(password=os.environ["PASSWORD"], id=1),
     )
-    assert result == {"success": True}, result
+    assert "workflow_id" in result, result
 
 
 if __name__ == "__main__":

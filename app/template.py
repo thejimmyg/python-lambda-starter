@@ -1,47 +1,46 @@
-import html
+from template import Html, Base
 
 
-class Html:
-    def __init__(self, escaped_html):
-        self._escaped_html = escaped_html
+class Main(Base):
+    def __init__(self, title, main):
+        self._title = "Main - " + title
+        self._main = main
 
-    def render(self):
-        return self._escaped_html
-
-    def __add__(self, other):
-        other_type = type(other)
-        if other_type is Html:
-            self._escaped_html += other._escaped_html
-        elif other_type is str:
-            self._escaped_html += html.escape(other, quote=True)
-        else:
-            raise Exception(f"Unsupported type: {repr(other)}")
-        return self
-
-
-def render(title, body):
-    return (
-        Html('<!DOCTYPE html>\n<html lang="en"><head><title>')
-        + title
-        + Html(
-            '</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta charset="UTF-8"></head><body><h1>'
+    def body(self):
+        return (
+            Html(
+                """
+<main>
+"""
+            )
+            + self.main()
+            + Html(
+                """
+</main>
+"""
+            )
         )
-        + title
-        + Html("</h1>")
-        + body
-        + Html("</body></html>")
-    )
+
+    def main(self):
+        return self._main
 
 
-def render_home():
-    body = Html("<ul>\n")
-    for link, text in [
-        ("/html", "HTML"),
-        ("/str", "str"),
-        ("/dict", "dict"),
-        ("/bytes", "bytes"),
-        ("/other", "Other (should raise error)"),
-    ]:
-        body += Html('<li><a href="') + link + Html('">') + text + Html("</a></li>\n")
-    body += Html("</ul>\n")
-    return render("Home", body)
+class Test(Base):
+    def __init__(self, title):
+        self._title = title
+
+    def body(self):
+        body = Html("    <main>\n      <h1>Home</h1>\n<ul>\n")
+        for link, text in [
+            ("/html", "HTML"),
+            ("/str", "str"),
+            ("/dict", "dict"),
+            ("/bytes", "bytes"),
+            ("/other", "Other (should raise error)"),
+            ("/submit", "Submit"),
+        ]:
+            body += (
+                Html('<li><a href="') + link + Html('">') + text + Html("</a></li>\n")
+            )
+        body += Html("</ul>\n    </main>")
+        return body

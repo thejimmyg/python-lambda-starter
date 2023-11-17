@@ -50,31 +50,28 @@ class Base:
             + self.title()
             + Html(
                 """</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
   </head>
   <body>
-    <main>
-      <h1>"""
+"""
             )
-            + self.title()
-            + Html("</h1>\n")
             + self.body()
             + Html(
                 """
-    </main>
-    <script src="/script.js"></script>
+    <script src="/static/script.js"></script>
   </body>
 </html>"""
             )
         ).render()
 
+
 if __name__ == "__main__":
     p = Html("1")
     p += Html("2")
-    assert str(Html("0") + p + Html("3")) == '0123'
+    assert str(Html("0") + p + Html("3")) == "0123"
 
-    actual = Base(title="Home", body='      <Body>').render()
+    actual = Base(title="Home", body="    <Body>").render()
     expected = """<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -82,15 +79,12 @@ if __name__ == "__main__":
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Home</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
   </head>
   <body>
-    <main>
-      <h1>Home</h1>
-      &lt;Body&gt;
-    </main>
-    <script src="/script.js"></script>
+    &lt;Body&gt;
+    <script src="/static/script.js"></script>
   </body>
 </html>"""
     if actual != expected:

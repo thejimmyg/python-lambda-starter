@@ -8,7 +8,7 @@ Parameters:
     Type: String
     MinLength: "1"
 
-  DynamodbTableArn:
+  DynamoDbTableArn:
     Description: The ARN of the DynamoDB Table used for storing tasks
     Type: String
     MinLength: 3
@@ -37,7 +37,7 @@ Resources:
       Roles:
         - !Ref StartingLambdaExecutionRoleFriendlyName
 
-  StartingLambdaDynamoPolicy:
+  StartingLambdaDynamoDbPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: !Sub '${AWS::StackName}StartingLambdaDynamoPolicy'
@@ -52,7 +52,7 @@ Resources:
               - dynamodb:PutItem
               - dynamodb:UpdateItem
             Resource:
-              - !Ref DynamodbTableArn
+              - !Ref DynamoDbTableArn
 
       # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
       Roles:

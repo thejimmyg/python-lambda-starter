@@ -3,12 +3,6 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: An example template with an IAM role for a takss Lambda state machine.
 
 Parameters:
-  TableName:
-    Description: The name of the table (the stack name will be pre-pended)
-    Type: String
-    Default: Tasks
-    MinLength: "1"
-
   Layers:
     Description: A space separated list of Layer ARNs including version
     Type: String
@@ -19,9 +13,18 @@ Parameters:
     Type: String
     Default: ""
 
+  DynamoDbTableArn:
+    Description: The ARN of the DynamoDB Table to store output in
+    Type: String
+    MinLength: "1"
+
+  DynamoDbTableName:
+    Description: The Name of the DynamoDB Table to store output in
+    Type: String
+    MinLength: "1"
+
 Conditions:
   HasLayers: !Not [!Equals [!Ref Layers, ""]]
-
 
 Resources:
   TasksLambdaExecutionRole:
@@ -51,32 +54,13 @@ Resources:
         - !Ref AWS::NoValue
       Environment:
         Variables:
-          ENCODED_ENVIRONMENT: !Sub 'KVSTORE_DYNAMODB_TABLE_NAME|${AWS::StackName}-${TableName},SAFETY_MULTIPLE|1.4,SAFETY_DELAY_MS|0,DELAY_MS|0,${EncodedEnvironment}'
+          ENCODED_ENVIRONMENT: !Sub 'KVSTORE_DYNAMODB_TABLE_NAME|${DynamoDbTableName},SAFETY_MULTIPLE|1.4,SAFETY_DELAY_MS|0,DELAY_MS|0,${EncodedEnvironment}'
+
           # # How much time to make sure is still available (the DELAY_MS value gets added on top of this)
           # SAFETY_MULTIPLE: 1.4
           # SAFETY_DELAY_MS: 0
           # # How many ms to wait after each task
           # DELAY_MS: 0
-
-  DynamoTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub '${AWS::StackName}-${TableName}'
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
-      KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
-
   TasksLambdaDynamoPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
@@ -92,7 +76,7 @@ Resources:
               - dynamodb:UpdateItem
               - dynamodb:DeleteItem
             Resource:
-              - !GetAtt DynamoTable.Arn
+              - !Ref DynamoDbTableArn
 
       # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
       Roles:
@@ -102,7 +86,7 @@ Resources:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: !Sub '${AWS::StackName}-TasksLambdaCloudWatchPolicy'
-      Description: Managed policy for the tasks Lambda function launched by CloudFormation
+      Description: Managed policy for the tasks Lambda function
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -173,14 +157,6 @@ Resources:
             End: true
 
 Outputs:
-  TableArn:
-    Description: The ARN of the DynamoDB table (including the generated stack name)
-    Value: !GetAtt DynamoTable.Arn
-
-  TableName:
-    Description: The full name of the DynamoDB table (including the generated stack name)
-    Value: !Ref DynamoTable
-
   StateMachineArn:
     Description: The ARN of the state machine that keeps the tasks lambda running
     Value: !Ref StateMachine

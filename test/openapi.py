@@ -4,7 +4,7 @@ def test_submit_input() -> None:
     result = app_submit_input(
         "http://localhost:8000/api", SubmitInput(id=1, password="password")
     )
-    assert result == {"success": True}, result
+    assert "workflow_id" in result and type(result["workflow_id"]) is str, result
 
 
 def main() -> None:

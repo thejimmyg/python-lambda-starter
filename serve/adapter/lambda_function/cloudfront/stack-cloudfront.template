@@ -27,12 +27,26 @@ Parameters:
     Type: Number
     Default: -1
 
+  Layers:
+    Description: A space separated list of Layer ARNs including version
+    Type: String
+    Default: ""
+
+  TableName:
+    Description: DynamoDB table name
+    Type: String
+    Default: Table
+    MinLength: "1"
+
 Resources:
   HttpLambdaStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: ../stack-lambda.yml
       Parameters:
+        Layers: !Ref Layers
+        DynamoDbTableArn: !GetAtt DynamoDbTable.Arn
+        DynamoDbTableName: !Sub '${AWS::StackName}-${TableName}'
         ReservedConcurrency: !Ref ReservedConcurrency
         EncodedEnvironment: !Sub 'PASSWORD|${Password}'
 
@@ -52,3 +66,22 @@ Resources:
         HostedZoneId: !Ref HostedZoneId
         LambdaEndpoint: !Join ["", !Split [/, !Join ["", !Split ['https://', !GetAtt HttpLambdaUrlStack.Outputs.HttpLambdaUrl]]]]
       TemplateURL: ./stack-cloudfront.yml
+
+  DynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-${TableName}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true

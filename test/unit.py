@@ -12,11 +12,49 @@ for k in os.environ:
 
 
 def test_template_render_home():
-    from app.template import render_home
+    from app.template import Test
 
-    html = render_home().render()
-    expected = '<!DOCTYPE html>\n<html lang="en"><head><title>Home</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta charset="UTF-8"></head><body><h1>Home</h1><ul>\n<li><a href="/html">HTML</a></li>\n<li><a href="/str">str</a></li>\n<li><a href="/dict">dict</a></li>\n<li><a href="/bytes">bytes</a></li>\n<li><a href="/other">Other (should raise error)</a></li>\n</ul>\n</body></html>'
-    assert html == expected, repr((html, expected))
+    actual = Test("Home").render()
+    expected = """\
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Home</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  </head>
+  <body>
+    <main>
+      <h1>Home</h1>
+<ul>
+<li><a href="/html">HTML</a></li>
+<li><a href="/str">str</a></li>
+<li><a href="/dict">dict</a></li>
+<li><a href="/bytes">bytes</a></li>
+<li><a href="/other">Other (should raise error)</a></li>
+<li><a href="/submit">Submit</a></li>
+</ul>
+    </main>
+    <script src="/static/script.js"></script>
+  </body>
+</html>"""
+
+    if actual != expected:
+        print(expected)
+        print(actual)
+        actual_lines = actual.split("\n")
+        for i, line in enumerate(expected.split("\n")):
+            if i > len(actual_lines) - 1:
+                print(">", actual_lines[i])
+                break
+            if line != actual_lines[i]:
+                print("-", line)
+                print("+", actual_lines[i])
+                break
+        raise AssertionError("Unexpected result of rendering Home")
 
 
 def test_web_submit():
@@ -28,7 +66,7 @@ def test_web_submit():
         begin_workflow.return_value = "123"
 
         from app.app import app
-        from app.template import Html
+        from app.template import Base
         from serve.adapter.shared import Base64, Http, Request, RespondEarly, Response
 
         http = Http(
@@ -49,7 +87,7 @@ def test_web_submit():
             context=dict(uid="123"),
         )
         app(http)
-        assert isinstance(http.response.body, Html)
+        assert isinstance(http.response.body, Base)
         body = http.response.body.render()
         assert "<form" in body, body
 
@@ -71,27 +109,26 @@ def test_web_submit():
             context=dict(uid="123"),
         )
         app(http)
-        assert isinstance(http.response.body, Html)
+        assert isinstance(http.response.body, Base)
         body = http.response.body.render()
         assert "Success" in body, body
 
 
 def test_types():
-    from app.typeddicts import is_ApiResponse
+    from app.typeddicts import is_SubmitInputResponse
 
     # Invalid case
     try:
         r: dict = {}
-        assert is_ApiResponse(r)
+        assert is_SubmitInputResponse(r)
     except AssertionError:
         pass
     else:
-        assert r["success"]
         raise Exception("Failed to raise assertion")
     # Valid case
-    s: dict = {"success": True}
-    assert is_ApiResponse(s)
-    assert s["success"]
+    s: dict = {"workflow_id": "some_date/some_guid"}
+    assert is_SubmitInputResponse(s)
+    assert s["workflow_id"]
 
 
 def test_api():
@@ -131,8 +168,8 @@ def test_api():
         app(http)
         assert (
             isinstance(http.response.body, dict)
-            and typeddicts.is_ApiResponse(http.response.body)
-            and http.response.body == {"success": True}
+            and typeddicts.is_SubmitInputResponse(http.response.body)
+            and "workflow_id" in http.response.body
         ), http.response.body
 
 

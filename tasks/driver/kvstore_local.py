@@ -52,20 +52,22 @@ def progress(workflow_id):
         workflow_id=workflow_id,
         num_tasks=int(workflow[1]["num_tasks"]),
         begin=workflow[1]["begin"],
-        end=workflow[1].get("end"),
     )
+    if "end" in header:
+        header["end"] = workflow[1].get("end")
     task_list = []
     for sk, data, ttl in results[1:]:
         assert sk.startswith("/task/"), sk
         _, _, remaining, task = sk.split("/")
-        task_list.append(
-            dict(
-                task=int(task),
-                remaining=int(remaining),
-                begin=data["begin"],
-                end=data.get("end"),
-            )
+        t = dict(
+            task=int(task),
+            remaining=int(remaining),
+            begin=data["begin"],
         )
+        if data.get("end"):
+            t["end"] = data["end"]
+        task_list.append(t)
+
     return header, task_list
 
 

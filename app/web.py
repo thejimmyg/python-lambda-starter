@@ -2,23 +2,11 @@ import os
 import urllib.parse
 
 from . import operation
-from .template import Html, render
+from .template import Html, Test, Base, Main
 
 
-def home(http):
-    body = Html("<ul>\n")
-    for link, text in [
-        ("/html", "HTML"),
-        ("/str", "str"),
-        ("/dict", "dict"),
-        ("/bytes", "bytes (may download)"),
-        ("/other", "Other (should raise error)"),
-        ("/static/hello.png", "hello.png"),
-        ("/submit", "Submit"),
-    ]:
-        body += Html('<li><a href="') + link + Html('">') + text + Html("</a></li>\n")
-    body += Html("</ul>\n")
-    http.response.body = render("Home", body)
+def test(http):
+    http.response.body = Test("Home")
 
 
 def test_html(http):
@@ -52,18 +40,25 @@ def test_other(http):
     http.response.body = Other()
 
 
-def handle_static(http):
-    filename = http.request.path[len("/static/") :]
-    assert "/" not in filename
-    assert ".." not in filename
-    src = os.path.join(os.path.dirname(__file__), "static", filename + ".txt")
-    assert os.path.dirname(os.path.abspath(os.path.normpath(src))) == os.path.join(
-        os.path.dirname(os.path.abspath(os.path.normpath(__file__))), "static"
-    )
-    with open(src, "r") as fp:
-        type, content = fp.read().strip().split("\n")
-        http.response.headers["content-type"] = type
-        http.response.body = http.response.Base64(content)
+def make_handle_static(base_path):
+    assert base_path.endswith(
+        "/"
+    ), f"Base path should always end in /. You have specified: {repr(base_path)}"
+
+    def handle_static(http):
+        filename = http.request.path[len(base_path) :]
+        assert "/" not in filename
+        assert ".." not in filename
+        src = os.path.join(os.path.dirname(__file__), "static", filename + ".txt")
+        assert os.path.dirname(os.path.abspath(os.path.normpath(src))) == os.path.join(
+            os.path.dirname(os.path.abspath(os.path.normpath(__file__))), "static"
+        )
+        with open(src, "r") as fp:
+            type, content = fp.read().strip().split("\n")
+            http.response.headers["content-type"] = type
+            http.response.body = http.response.Base64(content)
+
+    return handle_static
 
 
 def submit(http):
@@ -72,22 +67,33 @@ def submit(http):
         result = operation.submit_input(
             {"password": q["password"][0], "id": int(q["id"][0])}
         )
-        assert result["success"]
-        body = Html("<p>Submission in progress ...</p>\n")
-        http.response.body = render("Success", body)
+        body = (
+            Html('<p>Submission in progress ... <a href="/progress?workflow_id=')
+            + urllib.parse.quote(result["workflow_id"])
+            + Html('">Check Progress</a>.</p>\n')
+        )
+        http.response.body = Base("Success", body)
     else:
         body = Html('<form method="post">\n')
         body += Html('Password <input type="password" name="password">\n')
         body += Html('ID <input type="input" name="id">\n')
         body += Html('<input type="submit" value="Submit">\n')
         body += Html("</form>\n")
-        http.response.body = render("Submit", body)
+        http.response.body = Base("Submit", body)
 
 
-import tasks.driver
+import json
 
 
 def progress(http):
     q = urllib.parse.parse_qs(http.request.query)
-    header, task_list = tasks.driver.progress(q["workflow_id"][0])
-    http.response.body = dict(header=header, task_list=task_list)
+    workflow_id = q["workflow_id"][0]
+    progress_response = operation.progress(workflow_id=workflow_id)
+    http.response.body = Main("Progress", main=json.dumps(progress_response))
+
+
+def home(http):
+    http.response.body = Main(
+        title="Home",
+        main=Html("""<p>This is the homepage.</p>"""),
+    )

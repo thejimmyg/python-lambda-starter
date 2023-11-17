@@ -16,15 +16,25 @@ Parameters:
     Type: String
     Default: ""
 
+  DynamoDbTableArn:
+    Description: The ARN of the DynamoDB Table to store output in
+    Type: String
+    MinLength: "1"
+
+  DynamoDbTableName:
+    Description: The Name of the DynamoDB Table to store output in
+    Type: String
+    MinLength: "1"
 
 Conditions:
   SetReservedConcurrentExecutions: !Not [!Equals [!Ref ReservedConcurrency, -1]]
+
   HasLayers: !Not [!Equals [!Ref Layers, ""]]
 
 Resources:
 
   # Html Lambda
-  HttpLambdaRole:
+  HttpLambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
 
@@ -61,7 +71,7 @@ Resources:
 
       # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
       Roles:
-        - !Ref HttpLambdaRole
+        - !Ref HttpLambdaExecutionRole
 
   # See https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/147
   # https://typicalrunt.me/2019/09/20/enforcing-least-privilege-when-logging-lambda-functions-to-cloudwatch/
@@ -75,7 +85,7 @@ Resources:
   HttpLambda:
     Type: AWS::Lambda::Function
     Properties:
-      Role: !GetAtt HttpLambdaRole.Arn
+      Role: !GetAtt HttpLambdaExecutionRole.Arn
       Code: ../../../lambda.zip
       ReservedConcurrentExecutions: !If
         - SetReservedConcurrentExecutions
@@ -93,7 +103,28 @@ Resources:
         - !Ref AWS::NoValue
       Environment:
         Variables:
-          ENCODED_ENVIRONMENT: !Ref EncodedEnvironment
+          ENCODED_ENVIRONMENT: !Sub 'KVSTORE_DYNAMODB_TABLE_NAME|${DynamoDbTableName},${EncodedEnvironment}'
+
+  HttpLambdaDynamoPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-HttpLambdaDynamoPolicy'
+      Description: Managed policy for the Http Lambda function
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:Query
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+            Resource:
+              - !Ref DynamoDbTableArn
+
+      # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
+      Roles:
+        - !Ref HttpLambdaExecutionRole
 
 Outputs:
   HttpLambdaArn:
@@ -102,4 +133,4 @@ Outputs:
 
   HttpLambdaExecutionRoleFriendlyName:
     Description: The friendly name of the lambda execution role, useful for adding policies to it in other stacks
-    Value: !Ref HttpLambdaRole
+    Value: !Ref HttpLambdaExecutionRole

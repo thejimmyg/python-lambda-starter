@@ -12,16 +12,23 @@ def test_submit_input() -> None:
 
 def main() -> None:
     from app.typeddicts import (
-        ApiResponse,
+        SubmitInputResponse,
         SubmitInput,
-        generate_example_ApiResponse,
+        ProgressResponse,
+        generate_example_ProgressResponse,
+        generate_example_SubmitInputResponse,
         make_app_handler,
     )
 
-    def submit_input(input_: SubmitInput) -> ApiResponse:
-        return generate_example_ApiResponse()
+    def submit_input(input_: SubmitInput) -> SubmitInputResponse:
+        return generate_example_SubmitInputResponse()
 
-    start_server({"/api": make_app_handler("/api", submit_input=submit_input)})
+    def progress(workflow_id: str) -> ProgressResponse:
+        return generate_example_ProgressResponse()
+
+    start_server(
+        {"/api": make_app_handler("/api", submit_input=submit_input, progress=progress)}
+    )
 
 
 if __name__ == "__main__":

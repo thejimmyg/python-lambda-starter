@@ -33,7 +33,6 @@ check: app/typeddicts.py
 	  serve/adapter/lambda_function/stack-lambda.yml \
 	  tasks/adapter/lambda_function/stack-tasks.yml \
 	  serve/adapter/lambda_function/cloudfront/stack-cloudfront.template \
-	  serve/adapter/lambda_function/example.template \
 	  stack-deploy-lambda.template
 
 test: app/typeddicts.py $(OBJS)
@@ -72,7 +71,7 @@ tasks-lambda.zip:
 	  --exclude 'serve/**' \
 	  --exclude 'tasks/*.yml' \
 	  -r tasks-lambda.zip \
-	  app tasks serve kvstore index.py
+	  app tasks serve kvstore index.py template.py
 	rm index.py
 
 lambda.zip:
@@ -96,7 +95,7 @@ lambda.zip:
 	  --exclude 'tasks/adapter' \
 	  --exclude 'tasks/adapter/**' \
 	  -r lambda.zip \
-	  app tasks serve kvstore index.py
+	  app tasks serve kvstore index.py template.py
 	rm index.py
 
 deploy-check-env-aws:

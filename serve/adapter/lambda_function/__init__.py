@@ -37,7 +37,7 @@ def make_lambda_handler(app):
         method = event["requestContext"]["http"]["method"].lower()
         path = event["rawPath"]
         query = event["rawQueryString"]
-        # These are lower-case already in lambda
+        # These are already lowercase in lambda
         request_headers = event["headers"]
         if event.get("cookies"):
             request_headers["cookie"] = "; ".join(event["cookies"])
@@ -115,7 +115,7 @@ def make_lambda_handler(app):
                 "headers": headers,
                 "body": http.response.body.render(),
             }
-        elif isinstance(http.response.body, dict):
+        elif isinstance(http.response.body, (list, dict)):
             # Lambda adds the correct content type and content length headers
             # for JSON, API Gateway does not
             headers["Content-Type"] = "application/json"
@@ -136,15 +136,3 @@ def make_lambda_handler(app):
             raise Exception(f"Unknown response type: {type(http.response.body)}")
 
     return app_lambda_handler
-
-
-_handler: list = []
-
-
-def lambda_handler(event, context):
-    global _handler
-    if len(_handler) == 0:
-        import app.app
-
-        _handler.append(make_lambda_handler(app.app.app))
-    return _handler[0](event, context)

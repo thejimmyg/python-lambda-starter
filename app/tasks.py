@@ -5,8 +5,9 @@ def wait():
     time.sleep(3)
 
 
-def count(next_task, num_tasks, begin_task, end_task):
-    # This only makes sense if there is a payload
-    begin_task()
+def count(next_task, state, patch_state):
+    print(next_task, state)
+    if next_task == 1:
+        print("Patching state")
+        patch_state({"banana": "fruit"})
     wait()
-    end_task()

@@ -37,7 +37,7 @@ check: app/typeddicts.py
 
 test: app/typeddicts.py $(OBJS)
 	PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py
-	PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/openapi.py
+	DEV_MODE=true PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/openapi.py
 
 format: format-python format-cfn
 

@@ -290,16 +290,19 @@ def print_handler(prefix, openapi):
             #     for sd in openapi.get("securitySchemes", {}).values()
             # ]
             # +
-            [f"{op}: Any" for op in operations]
+            [f"{op}: Any=example_handler_{prefix}_{op}" for op in operations]
         )
     )
 
     if openapi["components"].get("securitySchemes", {}):
-        print(f"Security = TypedDict('Security', " + "{")
+        print(
+            f"{prefix.capitalize()}Security = TypedDict('{prefix.capitalize()}Security', "
+            + "{"
+        )
         print(f"    'verified_claims': dict[str, str],")
-        for key, value in openapi["components"].get("securitySchemes").items():
+        for key in openapi["components"].get("securitySchemes"):
             print(
-                f"    '{key}': str",
+                f"    '{key}': str,",
             )
         print("})")
         print("")
@@ -319,7 +322,7 @@ def print_handler(prefix, openapi):
         '        http.response.headers["Content-Type"] = "application/json; charset=utf-8"'
     )
     if openapi["components"].get("securitySchemes", {}):
-        print(f"        security = Security(")
+        print(f"        security = {prefix.capitalize()}Security(")
         print(f"            verified_claims=http.request.verified_claims,")
         for name, sd in openapi["components"].get("securitySchemes", {}).items():
             print(f"            {name}=http.request.headers['{sd['name'].lower()}'],")
@@ -382,7 +385,9 @@ def print_handler(prefix, openapi):
                 print(
                     f'                    body = json.loads(http.request.body.decode("utf8"))'
                 )
-                print(f"                    assert is_SubmitInput(body), body")
+                print(
+                    f"                    assert is_{operation['requestBody']['content']['application/json']['schema']['$ref'][len('#/components/schemas/'):]}(body), body"
+                )
                 print(f"                except Exception as e:")
                 print(f"                    print(e)")
                 print(
@@ -459,7 +464,11 @@ def main(prefix, filename):
         print(f"{jsonschema['title']} = TypedDict('{jsonschema['title']}', " + "{")
         for key, value in jsonschema["properties"].items():
             if key in (jsonschema.get("required") or []):
-                if value["type"] == "array":
+                if "$ref" in value:
+                    print(
+                        f"    '{key}': '{value['$ref'][len('#/components/schemas/'):]}',"
+                    )
+                elif value["type"] == "array":
                     print(
                         f"    '{key}': list[\"{value['items']['$ref'][len('#/components/schemas/'):]}\"],"
                     )
@@ -640,6 +649,8 @@ def main(prefix, filename):
                     else:
                         headers.append((parameter["name"], False))
 
+        args_orig = args[len(jsonschema["securitySchemes"].values()) :]
+
         arg_strs: list[str] = [arg[2] for arg in sorted(args)]
         fn = f"def {prefix}_{operation['operationId']}(base_url: str"
         if operation.get("requestBody"):
@@ -724,12 +735,16 @@ def main(prefix, filename):
         print()
         print()
 
+        # Create a new arg_strs, this one without the headers used for the security (because they are in there anyway)
+        arg_strs2: list[str] = [arg[2] for arg in sorted(args_orig)]
         fn = f"def example_handler_{prefix}_{operation['operationId']}("
         if operation.get("requestBody"):
             fn += f"request_data: {operation['requestBody']['content']['application/json']['schema']['$ref'][len('#/components/schemas/'):]}, "
+        if jsonschema["securitySchemes"]:
+            fn += f'security: "{prefix.capitalize()}Security", '
         if args:
-            fn += (", ".join(arg_strs)) + ", "
-        if args or operation.get("requestBody"):
+            fn += (", ".join(arg_strs2)) + ", "
+        if args_orig or operation.get("requestBody") or jsonschema["securitySchemes"]:
             fn = fn[:-2]
         if "$ref" in schema:
             t = schema["$ref"][len("#/components/schemas/") :]

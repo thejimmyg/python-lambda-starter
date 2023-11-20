@@ -1,6 +1,7 @@
 import base64
 import os
 import time
+import importlib
 
 encoded_environment = os.environ.get("ENCODED_ENVIRONMENT", "")
 if encoded_environment:
@@ -35,7 +36,7 @@ import tasks.driver
 from ..shared import Error
 
 
-def make_lambda_handler(app_tasks):
+def make_lambda_handler():
     def tasks_lambda_handler(event, context):
         # Here the event is whatever you pass as the JSON when executing the stepfunctions state machine
         uid = context.aws_request_id
@@ -45,25 +46,31 @@ def make_lambda_handler(app_tasks):
         print(event, context, uid, delay_ms, safety_multiple, safety_delay_ms)
         workflow_id = event["workflow_id"]
 
-        next_task, num_tasks, handler = tasks.driver.get_next_task(workflow_id)
-        handler_function = getattr(app_tasks, handler)
+        next_task, state = tasks.driver.get_next_task(workflow_id)
+        module, obj = state["handler"].split(":")
+        m = importlib.import_module(module)
+        handler_function = getattr(m, obj)
         # This algorithm will always try and run at least one task
         longest_task_ms = 0.0
 
-        for i in range(next_task, num_tasks + 1):
+        def patch_state(data):
+            # Save to store
+            tasks.driver.patch_state(workflow_id, data)
+            # And update locally
+            state.update(data)
+
+        for i in range(next_task, state["num_tasks"] + 1):
             time.sleep(delay_ms / 1000.0)
-
-            def handler_begin_task():
-                return tasks.driver.begin_task(uid, workflow_id, num_tasks, i)
-
-            def handler_end_task():
-                return tasks.driver.end_task(uid, workflow_id, num_tasks, i)
-
+            # End new
             now = time.time()
-            handler_function(next_task, num_tasks, handler_begin_task, handler_end_task)
-            elapsed_ms = (time.time() - now) * 1000
+            tasks.driver.begin_task(uid, workflow_id, state["num_tasks"], i)
+            handler_function(i, state, patch_state)
+            tasks.driver.end_task(uid, workflow_id, state["num_tasks"], i)
+
+            elapsed_ms: float = (time.time() - now) * 1000
             if elapsed_ms > longest_task_ms:
                 longest_task_ms = elapsed_ms
+
             remaining_ms = context.get_remaining_time_in_millis()
             needed_ms = (longest_task_ms * safety_multiple) + safety_delay_ms + delay_ms
             if remaining_ms < needed_ms:
@@ -77,15 +84,3 @@ def make_lambda_handler(app_tasks):
         return event
 
     return tasks_lambda_handler
-
-
-_handler: list = []
-
-
-def lambda_handler(event, context):
-    global _handler
-    if len(_handler) == 0:
-        import app.tasks
-
-        _handler.append(make_lambda_handler(app.tasks))
-    return _handler[0](event, context)

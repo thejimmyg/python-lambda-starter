@@ -1,4 +1,5 @@
 import base64
+import os
 import json
 import uuid
 from socketserver import ThreadingMixIn
@@ -37,6 +38,17 @@ def start_server(handlers: dict[str, Any], port=8000, host="localhost") -> None:
         request_body = None
         if "wsgi.input" in environ and environ.get("CONTENT_LENGTH"):
             request_body = environ["wsgi.input"].read(int(environ["CONTENT_LENGTH"]))
+        verified_claims = None
+        if "authorization" in request_headers:
+            assert os.environ.get("DEV_MODE", "false").lower() == "true"
+            print("WARNING: In dev mode, not verifying the claims, just claiming to.")
+            token = request_headers["authorization"]
+            if " " in token:
+                token = token.split(" ")[-1]
+            s = token.split(".")[1].encode("utf8")
+            verified_claims = json.loads(
+                base64.urlsafe_b64decode(s + (b"=" * (4 - len(s) % 4)))
+            )
         http = Http(
             request=Request(
                 path=path,
@@ -44,8 +56,7 @@ def start_server(handlers: dict[str, Any], port=8000, host="localhost") -> None:
                 headers=request_headers,
                 method=method.lower(),
                 body=request_body,
-                # XXX Not supported yet
-                verified_claims=None,
+                verified_claims=verified_claims,
             ),
             response=Response(
                 body=None,
@@ -86,7 +97,7 @@ def start_server(handlers: dict[str, Any], port=8000, host="localhost") -> None:
             headers["Content-Length"] = str(len(body))
             start_response(http.response.status, list(headers.items()))
             return [body]
-        elif isinstance(http.response.body, dict):
+        elif isinstance(http.response.body, (list, dict)):
             body = json.dumps(http.response.body).encode("utf8")
             headers["Content-Type"] = "application/json"
             headers["Content-Length"] = str(len(body))

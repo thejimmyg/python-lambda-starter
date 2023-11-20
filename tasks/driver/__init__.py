@@ -9,6 +9,7 @@ if os.environ.get("TASKS_STATE_MACHINE_ARN"):
         end_workflow,
         get_next_task,
         progress,
+        patch_state,
     )
 else:
     from .kvstore_local import (
@@ -19,6 +20,7 @@ else:
         end_workflow,
         get_next_task,
         progress,
+        patch_state,
     )
 
 
@@ -30,4 +32,5 @@ __all__ = (
     "end_task",
     "end_workflow",
     "begin_state_machine",
+    "patch_state",
 )

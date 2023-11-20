@@ -22,16 +22,11 @@ def main() -> None:
         make_app_handler,
     )
 
-    def submit_input(input_: SubmitInput, validated_security) -> SubmitInputResponse:
+    def submit_input(input_: SubmitInput, security) -> SubmitInputResponse:
         return generate_example_SubmitInputResponse()
 
-    def progress(workflow_id: str, validated_security) -> ProgressResponse:
+    def progress(workflow_id: str, security) -> ProgressResponse:
         return generate_example_ProgressResponse()
-
-    def validate_security(http, authorization):
-        if authorization == "secret":
-            return True
-        raise http.response.RespondEarly("No authenticated")
 
     start_server(
         {
@@ -39,7 +34,6 @@ def main() -> None:
                 "/api",
                 submit_input=submit_input,
                 progress=progress,
-                validate_security=validate_security,
             )
         }
     )

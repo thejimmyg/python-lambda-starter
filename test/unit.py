@@ -76,6 +76,7 @@ def test_web_submit():
                 headers={},
                 method="get",
                 body=b"",
+                verified_claims=None,
             ),
             response=Response(
                 status="200 OK",
@@ -98,6 +99,7 @@ def test_web_submit():
                 headers={},
                 method="post",
                 body=b"password=" + os.environ["PASSWORD"].encode("utf8") + b"&id=1",
+                verified_claims=None,
             ),
             response=Response(
                 status="200 OK",
@@ -149,11 +151,21 @@ def test_api():
             request=Request(
                 path="/api/submit_input",
                 query="",
-                headers={"authorization": "secret"},
+                headers={
+                    "authorization": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ.eyJhdWQiOiJhcHBzIiwiZXhwIjoxNzAwMzM0NzYxLCJpYXQiOjE3MDAzMzQxNjEsImlzcyI6Imh0dHBzOi8vYXV0aC5hcHBzLmppbW15Zy5vcmciLCJzY29wZSI6InJlYWQgd3JpdGUiLCJzdWIiOiJqYW1lcyJ9.C4ubfwO956ZTGp6RswjQs_95ZLNCSs5_eeLymtFhubLjgGzAOg2zE-rfGbcKRYySPDkwnjUivd5bqVP4wvRJ4o7ONOc0q8219qSPAQxX9-XrZVK7NWZOPS6dQ_vyU2APWdIPnYfmZRh9rXZ60DkMaLTbrW0t8SHzG2DQ1MV63hjWnFMTMvLZ7UG8YfLy7TbYzoG7BCZtw-eS7ySzeVpD372IUPpCnsUa-m-3mjgj8GfTaDRSau6n50Jnly1L1HJ7_6Z_velpbWn50P3ePpiZC_xql5tw-BwpcQ3mZuk4wf1TXAHlO05oy1GHHIa9u1P-ukOpFmByr5XXxq3Fni0tcw"
+                },
                 method="post",
                 body=json.dumps({"id": 123, "password": os.environ["PASSWORD"]}).encode(
                     "utf8"
                 ),
+                verified_claims={
+                    "aud": "apps",
+                    "exp": 1700334761,
+                    "iat": 1700334161,
+                    "iss": "https://auth.apps.example.com",
+                    "scope": "read write",
+                    "sub": "james",
+                },
             ),
             response=Response(
                 status="200 OK",

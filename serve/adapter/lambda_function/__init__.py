@@ -47,12 +47,20 @@ def make_lambda_handler(app):
                 request_body = base64.b64decode(event["body"])
             else:
                 request_body = event["body"].encode("utf8")
+        verified_claims = None
+        if (
+            "authorizer" in event["requestContext"]
+            and "jwt" in event["requestContext"]["authorizer"]
+            and "claims" in event["requestContext"]["authorizer"]["jwt"]
+        ):
+            verified_claims = event["requestContext"]["authorizer"]["jwt"]
         request = Request(
             path=path,
             query=query or None,
             headers=request_headers,
             method=method.lower(),
             body=request_body,
+            verified_claims=verified_claims,
         )
         response = Response(
             status="200 OK",

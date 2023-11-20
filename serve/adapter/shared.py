@@ -21,6 +21,7 @@ class Request:
     headers: dict[str, str]
     method: str
     body: None | bytes
+    verified_claims: None | dict[str, float | int | str]
 
 
 class RespondEarly(Exception):

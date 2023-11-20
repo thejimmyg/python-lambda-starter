@@ -111,43 +111,62 @@ def test_api_submit_input(lambda_url):
     req = urllib.request.Request(
         lambda_url + "/api/submit_input", data=data, headers={"authorization": "secret"}
     )
-    with urllib.request.urlopen(req) as response:
-        assert (
-            "Content-Type",
-            "application/json",
-        ) in response.getheaders(), response.getheaders()
-        response_body = response.read()
-        assert "workflow_id" in json.loads(response_body.decode("utf8")), response_body
-
-    # id is a string this time, not an integer
-    data = json.dumps({"password": os.environ["PASSWORD"], "id": "123"}).encode("utf8")
-    req = urllib.request.Request(
-        lambda_url + "/api/submit_input", data=data, headers={"authorization": "secret"}
-    )
     try:
         with urllib.request.urlopen(req) as response:
-            raise Exception(
-                "Expected the API call with the wrong type for id to fail, but it succeeded"
+            assert (
+                "Content-Type",
+                "application/json",
+            ) in response.getheaders(), response.getheaders()
+            response_body = response.read()
+            assert "workflow_id" in json.loads(
+                response_body.decode("utf8")
+            ), response_body
+
+        # id is a string this time, not an integer
+        data = json.dumps({"password": os.environ["PASSWORD"], "id": "123"}).encode(
+            "utf8"
+        )
+        req = urllib.request.Request(
+            lambda_url + "/api/submit_input",
+            data=data,
+            headers={"authorization": "secret"},
+        )
+        try:
+            with urllib.request.urlopen(req) as response:
+                raise Exception(
+                    "Expected the API call with the wrong type for id to fail, but it succeeded"
+                )
+        except urllib.error.HTTPError as e:
+            assert e.code in [400], e.code
+            response_body = e.read()
+            assert e.reason in ["Bad Request", "Invalid data"], e.reason
+            assert response_body == b"Invalid data", response_body
+            assert e.headers["Content-Type"] == "text/plain", e.headers.get(
+                "Content-Type"
             )
     except urllib.error.HTTPError as e:
-        assert e.code in [400], e.code
-        response_body = e.read()
-        assert e.reason in ["Bad Request", "Invalid data"], e.reason
-        assert response_body == b"Invalid data", response_body
-        assert e.headers["Content-Type"] == "text/plain", e.headers.get("Content-Type")
+        pass
+    else:
+        raise Exception("Expected a 401 to be raised")
 
 
 def test_sdk_submit_input(lambda_url):
     import os
+    import urllib
 
     from app.typeddicts import SubmitInput, app_submit_input
 
-    result = app_submit_input(
-        base_url=lambda_url + "/api",
-        request_data=SubmitInput(password=os.environ["PASSWORD"], id=1),
-        authorization="secret",
-    )
-    assert "workflow_id" in result, result
+    try:
+        result = app_submit_input(
+            base_url=lambda_url + "/api",
+            request_data=SubmitInput(password=os.environ["PASSWORD"], id=1),
+            authorization="secret",
+        )
+        assert "workflow_id" in result, result
+    except urllib.error.HTTPError as e:
+        pass
+    else:
+        raise Exception("Expected a 401 to be raised")
 
 
 if __name__ == "__main__":

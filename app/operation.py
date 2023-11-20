@@ -4,16 +4,17 @@ import uuid
 import tasks.driver
 
 from .typeddicts import (
-    Any,
     SubmitInput,
     SubmitInputResponse,
     ProgressResponse,
     is_ProgressResponse,
     is_SubmitInputResponse,
+    Security,
 )
 
 
-def submit_input(input: SubmitInput, validated_security: Any) -> SubmitInputResponse:
+def submit_input(input: SubmitInput, security: Security) -> SubmitInputResponse:
+    assert security["verified_claims"] is not None, "401"
     uid = str(uuid.uuid4())
     if input["password"] != os.environ["PASSWORD"]:
         raise ValueError("Invalid password")
@@ -25,7 +26,8 @@ def submit_input(input: SubmitInput, validated_security: Any) -> SubmitInputResp
         return submit_input_response
 
 
-def progress(workflow_id: str, validated_security: Any) -> ProgressResponse:
+def progress(workflow_id: str, security: Security) -> ProgressResponse:
+    assert security["verified_claims"] is not None, "401"
     progress, task_list = tasks.driver.progress(workflow_id=workflow_id)
     progress_response = progress.copy()
     if task_list:

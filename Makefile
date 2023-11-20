@@ -140,13 +140,16 @@ deploy-lambda: deploy-check-env clean all check test lambda.zip tasks-lambda.zip
 	    --template-file "deploy-lambda.yml" \
 	    --stack-name "${STACK_NAME}" \
 	    --capabilities CAPABILITY_NAMED_IAM \
+	    --disable-rollback \
 	    --parameter-overrides \
 	        "Domain=${DOMAIN}" \
 	        "HostedZoneId=${HOSTED_ZONE_ID}" \
 	        "ReservedConcurrency=-1" \
 	        "ThrottlingRateLimit=50" \
 	        "ThrottlingBurstLimit=200" \
-	        "Password=${PASSWORD}"
+	        "Password=${PASSWORD}" \
+	        "Issuer=${ISSUER}" \
+	        "Audiences=${AUDIENCES}"
 	curl -v https://apps.jimmyg.org
 	PYTHONPATH=. .venv/bin/python3 test/smoke.py "https://${DOMAIN}"
 

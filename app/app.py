@@ -2,17 +2,10 @@ from . import operation, web
 from .typeddicts import make_app_handler
 
 
-def validate_security(http, authorization):
-    if authorization == "secret":
-        return True
-    raise http.response.RespondEarly("No authenticated")
-
-
 app_handler = make_app_handler(
     "/api",
     submit_input=operation.submit_input,
     progress=operation.progress,
-    validate_security=validate_security,
 )
 
 
@@ -43,7 +36,7 @@ def app(http):
         web.submit(http)
     elif http.request.path.startswith("/progress"):
         web.progress(http)
-    elif http.request.path.startswith("/api"):
+    elif http.request.path.startswith("/api/"):
         app_handler(http)
     else:
         http.response.headers["content-type"] = "text/plain"

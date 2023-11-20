@@ -44,6 +44,8 @@ def start_server(handlers: dict[str, Any], port=8000, host="localhost") -> None:
                 headers=request_headers,
                 method=method.lower(),
                 body=request_body,
+                # XXX Not supported yet
+                verified_claims=None,
             ),
             response=Response(
                 body=None,

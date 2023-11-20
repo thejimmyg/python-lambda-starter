@@ -3,6 +3,7 @@ import urllib.parse
 
 from . import operation
 from .template import Html, Test, Base, Main
+from .typeddicts import Security
 
 
 def test(http):
@@ -66,7 +67,7 @@ def submit(http):
         q = urllib.parse.parse_qs(http.request.body.decode("utf8"))
         result = operation.submit_input(
             {"password": q["password"][0], "id": int(q["id"][0])},
-            validated_security=True,
+            security=Security(access_token="", verified_claims={}),
         )
         body = (
             Html('<p>Submission in progress ... <a href="/progress?workflow_id=')
@@ -90,7 +91,8 @@ def progress(http):
     q = urllib.parse.parse_qs(http.request.query)
     workflow_id = q["workflow_id"][0]
     progress_response = operation.progress(
-        workflow_id=workflow_id, validated_security=True
+        workflow_id=workflow_id,
+        security=Security(access_token="", verified_claims={}),
     )
     http.response.body = Main("Progress", main=json.dumps(progress_response))
 

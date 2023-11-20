@@ -293,14 +293,19 @@ def print_handler(prefix, openapi):
             [f"{op}: Any" for op in operations]
         )
     )
+
     if openapi["components"].get("securitySchemes", {}):
-        operations_str += ", validate_security: Any"
-        security_str = ", ".join(
-            [
-                f"{sd['name'].replace('-', '_').lower()}=http.request.headers['{sd['name'].lower()}']"
-                for sd in openapi["components"].get("securitySchemes", {}).values()
-            ]
-        )
+        print(f"Security = TypedDict('Security', " + "{")
+        print(f"    'verified_claims': dict[str, str],")
+        for key, value in openapi["components"].get("securitySchemes").items():
+            print(
+                f"    '{key}': str",
+            )
+        print("})")
+        print("")
+        print("")
+
+        # operations_str += ", security: Security"
 
     print(f"def make_{prefix}_handler(base_path: str" + operations_str + ") -> Any:")
     print(f"    def {prefix}_handler(http: Any) -> None:")
@@ -313,8 +318,12 @@ def print_handler(prefix, openapi):
     print(
         '        http.response.headers["Content-Type"] = "application/json; charset=utf-8"'
     )
-    for sd in openapi["components"].get("securitySchemes", {}).values():
-        print(f"        validated_security = validate_security(http, {security_str})")
+    if openapi["components"].get("securitySchemes", {}):
+        print(f"        security = Security(")
+        print(f"            verified_claims=http.request.verified_claims,")
+        for name, sd in openapi["components"].get("securitySchemes", {}).items():
+            print(f"            {name}=http.request.headers['{sd['name'].lower()}'],")
+        print(f"        )")
 
     print("        method = http.request.method.lower()")
     print("        openapi_path = http.request.path[len(base_path):]")
@@ -354,7 +363,7 @@ def print_handler(prefix, openapi):
                 ]
             )
             if openapi["components"].get("securitySchemes", {}):
-                param_args.append("validated_security=validated_security")
+                param_args.append("security=security")
 
             if path_param_strings:
                 print(
@@ -573,6 +582,7 @@ def main(prefix, filename):
         headers: list[tuple[str, bool]] = []
         url_replace_lines = [f"    url = base_url + '{operation['path']}'"]
         # Add in the security definitions first
+
         for security_scheme in jsonschema["securitySchemes"].values():
             arg = f"{security_scheme['name'].replace('-', '_').lower()}: str"
             args.append((0, len(args), arg, security_scheme["name"]))
@@ -580,6 +590,17 @@ def main(prefix, filename):
                 "name"
             ].lower()
             headers.append((security_scheme["name"], True))
+
+        # if jsonschema["securitySchemes"]:
+        #     args.append((0, len(args), 'security: Security', 'security: Security'))
+
+        # for security_scheme in jsonschema["securitySchemes"].values():
+        #     arg = f"{security_scheme['name'].replace('-', '_').lower()}: str"
+        #     args.append((0, len(args), arg, security_scheme["name"]))
+        #     assert security_scheme["name"].lower() != "content-type", security_scheme[
+        #         "name"
+        #     ].lower()
+        #     headers.append((security_scheme["name"], True))
         # Prepare all the parameters
         for parameter in operation["parameters"]:
             if parameter.get("in") in ["path", "query", "header"]:

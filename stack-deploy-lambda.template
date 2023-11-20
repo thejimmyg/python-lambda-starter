@@ -43,6 +43,17 @@ Parameters:
     Default: Table
     MinLength: "1"
 
+  Issuer:
+    Description: An optional issuer for a JWT check at the /api route. Used in the JwtAuthorizer
+    Type: String
+    Default: ""
+
+  Audiences:
+    Description: An optional space-separated string of audiences that should be allowed access. Used in the JwtAuthorizer
+    Type: String
+    Default: ""
+
+
 Resources:
   HttpLambdaStack:
     Type: AWS::CloudFormation::Stack
@@ -88,6 +99,8 @@ Resources:
         LambdaArn: !GetAtt HttpLambdaStack.Outputs.HttpLambdaArn
         ThrottlingRateLimit: !Ref ThrottlingRateLimit
         ThrottlingBurstLimit: !Ref ThrottlingBurstLimit
+        Issuer: !Ref Issuer
+        Audiences: !Ref Audiences
       TemplateURL: serve/adapter/lambda_function/stack-api-gateway.yml
 
   ApiGatewayDomainStack:

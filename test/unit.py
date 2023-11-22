@@ -34,6 +34,7 @@ def test_template_render_home():
 <li><a href="/str">str</a></li>
 <li><a href="/dict">dict</a></li>
 <li><a href="/bytes">bytes</a></li>
+<li><a href="/static/hello.png">img</a></li>
 <li><a href="/other">Other (should raise error)</a></li>
 <li><a href="/submit">Submit</a></li>
 </ul>
@@ -117,19 +118,19 @@ def test_web_submit():
 
 
 def test_types():
-    from app.typeddicts import is_SubmitInputResponse
+    from app.typeddicts import enforce_SubmitInputResponse
 
     # Invalid case
     try:
         r: dict = {}
-        assert is_SubmitInputResponse(r)
-    except AssertionError:
+        assert enforce_SubmitInputResponse(r)
+    except (KeyError, AssertionError):
         pass
     else:
         raise Exception("Failed to raise assertion")
     # Valid case
     s: dict = {"workflow_id": "some_date/some_guid"}
-    assert is_SubmitInputResponse(s)
+    assert enforce_SubmitInputResponse(s)
     assert s["workflow_id"]
 
 

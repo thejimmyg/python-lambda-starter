@@ -386,7 +386,7 @@ def print_handler(prefix, openapi):
                     f'                    body = json.loads(http.request.body.decode("utf8"))'
                 )
                 print(
-                    f"                    assert is_{operation['requestBody']['content']['application/json']['schema']['$ref'][len('#/components/schemas/'):]}(body), body"
+                    f"                    assert enforce_{operation['requestBody']['content']['application/json']['schema']['$ref'][len('#/components/schemas/'):]}(body)"
                 )
                 print(f"                except Exception as e:")
                 print(f"                    print(e)")
@@ -541,45 +541,52 @@ def main(prefix, filename):
         print()
         print()
         print(
-            f"def is_{jsonschema['title']}(value: dict[str, Any]) -> TypeGuard[{jsonschema['title']}]:"
+            f"def enforce_{jsonschema['title']}(value: dict[str, Any] | {jsonschema['title']}) -> TypeGuard[{jsonschema['title']}]:"
         )
-        print("    try:")
         for key, value in jsonschema["properties"].items():
             indent = ""
             if key not in (jsonschema.get("required") or []):
-                print(f"        if '{key}' in value:")
+                print(f"    if '{key}' in value:")
                 indent = "    "
             if "$ref" in value:
                 print(
-                    f"{indent}        assert is_{value['$ref'][len('#/components/schemas/'):]}(value['{key}']), value['{key}']"
+                    f"{indent}    assert enforce_{value['$ref'][len('#/components/schemas/'):]}(value['{key}'])"
                 )
             elif value["type"] == "array":
                 print(
-                    f"{indent}        assert isinstance(value['{key}'], list), (value['{key}'], list)"
+                    f"{indent}    assert isinstance(value['{key}'], list), (value['{key}'], list)"
                 )
-                print(f"{indent}        for item in value['{key}']:")
+                print(f"{indent}    for item in value['{key}']:")
                 if "$ref" in value["items"]:
                     print(
-                        f"{indent}            assert is_{value['items']['$ref'][len('#/components/schemas/') :]}(item), item"
+                        f"{indent}        assert enforce_{value['items']['$ref'][len('#/components/schemas/') :]}(item)"
                     )
                 else:
                     print(
-                        f"{indent}            assert isinstance(item, {jsonschema_types_to_python_types[value['items']['type']]}), item",
+                        f"{indent}        assert isinstance(item, {jsonschema_types_to_python_types[value['items']['type']]}), item",
                     )
             elif value["type"] == "object":
                 # This is a strange edge case where people abuse an empty property list with no required fields to create any object they like
                 if value == {"type": "object", "properties": {}}:
                     print(
-                        f"{indent}        assert isinstance(value['{key}'], dict), (value['{key}'], dict)"
+                        f"{indent}    assert isinstance(value['{key}'], dict), (value['{key}'], dict)"
                     )
-                    print(f"{indent}        for k in value['{key}']:")
-                    print(f"{indent}            assert isinstance(k, str)")
+                    print(f"{indent}    for k in value['{key}']:")
+                    print(f"{indent}        assert isinstance(k, str)")
                 else:
                     raise Exception("Complex nesting not supported")
             else:
                 print(
-                    f"{indent}        assert isinstance(value['{key}'], {jsonschema_types_to_python_types[value['type']]}), (value['{key}'], {jsonschema_types_to_python_types[value['type']]})"
+                    f"{indent}    assert isinstance(value['{key}'], {jsonschema_types_to_python_types[value['type']]}), (value['{key}'], {jsonschema_types_to_python_types[value['type']]})"
                 )
+        print("    return True")
+        print()
+        print()
+        print(
+            f"def is_{jsonschema['title']}(value: dict[str, Any] | {jsonschema['title']}) -> TypeGuard[{jsonschema['title']}]:"
+        )
+        print("    try:")
+        print(f"        assert enforce_{jsonschema['title']}(value)")
         print("        return True")
         print("    except (KeyError, AssertionError) as e:")
         print("        print(e)")
@@ -710,7 +717,7 @@ def main(prefix, filename):
             print(fn + f") -> {t}:")
 
             print_fetch()
-            print(f"        assert is_{t}(response_data), response_data")
+            print(f"        assert enforce_{t}(response_data)")
             # print(f'        TYPE_CHECKING and reveal_type(response_data)')
             print(f"        return response_data")
         else:
@@ -726,7 +733,7 @@ def main(prefix, filename):
                 print(f"        assert isinstance(response_data, list), response_data")
                 print(f"        result: list[{t}] = []")
                 print(f"        for item in response_data:")
-                print(f"            assert is_{t}(item), item")
+                print(f"            assert enforce_{t}(item)")
                 print(f"            result.append(item)")
                 # print(f'        TYPE_CHECKING and reveal_type(result)')
                 print(f"        return result")

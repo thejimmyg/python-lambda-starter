@@ -36,6 +36,7 @@ class Test(Base):
             ("/str", "str"),
             ("/dict", "dict"),
             ("/bytes", "bytes"),
+            ("/static/hello.png", "img"),
             ("/other", "Other (should raise error)"),
             ("/submit", "Submit"),
         ]:

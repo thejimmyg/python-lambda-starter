@@ -7,8 +7,8 @@ from .typeddicts import (
     SubmitInput,
     SubmitInputResponse,
     ProgressResponse,
-    is_ProgressResponse,
-    is_SubmitInputResponse,
+    enforce_ProgressResponse,
+    enforce_SubmitInputResponse,
     AppSecurity,
 )
 
@@ -24,7 +24,7 @@ def submit_input(input: SubmitInput, security: AppSecurity) -> SubmitInputRespon
         )
         tasks.driver.begin_state_machine(workflow_id)
         submit_input_response = dict(workflow_id=workflow_id)
-        assert is_SubmitInputResponse(submit_input_response)
+        assert enforce_SubmitInputResponse(submit_input_response)
         return submit_input_response
 
 
@@ -34,5 +34,5 @@ def progress(workflow_id: str, security: AppSecurity) -> ProgressResponse:
     progress_response = progress.copy()
     if task_list:
         progress_response["tasks"] = task_list
-    assert is_ProgressResponse(progress_response)
+    assert enforce_ProgressResponse(progress_response)
     return progress_response

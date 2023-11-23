@@ -56,14 +56,10 @@ def get_next_task(workflow_id):
 
 def progress(workflow_id):
     results, maybe_more_sk = list(kvstore.driver.iterate(store, workflow_id))
-    workflow = results[0]
-    header = dict(
-        workflow_id=workflow_id,
-        num_tasks=int(workflow[1]["num_tasks"]),
-        begin=workflow[1]["begin"],
-    )
-    if "end" in workflow[1]:
-        header["end"] = workflow[1].get("end")
+    # print(results)
+    header = results[0][1]
+    header["num_tasks"] = int(header["num_tasks"])
+    del header["handler"]
     task_list = []
     for sk, data, ttl in results[1:]:
         assert sk.startswith("/task/"), sk
@@ -71,40 +67,72 @@ def progress(workflow_id):
         t = dict(
             task=int(task),
             remaining=int(remaining),
-            begin=data["begin"],
         )
-        if data.get("end"):
-            t["end"] = data["end"]
+        t.update(data)
         task_list.append(t)
     return header, task_list
 
 
-def begin_task(uid, workflow_id, num_tasks, i):
-    now = datetime.datetime.now()
+def begin_task(
+    uid,
+    workflow_id,
+    num_tasks,
+    i,
+    task_state: dict[str, int | float | str] | None = None,
+    begun_at: datetime.datetime | None = None,
+):
+    if begun_at is None:
+        datetime.datetime.now()
+    # Help the type checker
+    assert begun_at
     sk = f"/task/{num_tasks-i}/{i}"
+    data = {
+        "begin": begun_at.isoformat(),
+        "begin_uid": uid,
+    }
+    if task_state is not None:
+        assert "task" not in task_state
+        assert "remaining" not in task_state
+        assert "begin" not in task_state
+        assert "begin_uid" not in task_state
+        assert "end" not in task_state
+        assert "end_uid" not in task_state
+        data.update(task_state)
     put_task_response = kvstore.driver.put(
         store,
         workflow_id,
         sk=sk,
-        data={
-            "begin": now.isoformat(),
-            "begin_uid": uid,
-        },
+        data=data,
     )
 
 
-def end_task(uid, workflow_id, num_tasks, i):
-    now = datetime.datetime.now()
+def end_task(
+    uid,
+    workflow_id,
+    num_tasks,
+    i,
+    patch_task_state: dict[str, int | float | str | kvstore.driver.Remove]
+    | None = None,
+    ended_at: datetime.datetime | None = None,
+):
+    if ended_at is None:
+        ended_at = datetime.datetime.now()
+    # Help the type checker
+    assert ended_at
+    data = {
+        "end": ended_at.isoformat(),
+        "end_uid": uid,
+    }
+    if patch_task_state is not None:
+        assert "task" not in patch_task_state
+        assert "remaining" not in patch_task_state
+        assert "begin" not in patch_task_state
+        assert "begin_uid" not in patch_task_state
+        assert "end" not in patch_task_state
+        assert "end_uid" not in patch_task_state
+        data.update(patch_task_state)
     sk = f"/task/{num_tasks-i}/{i}"
-    kvstore.driver.patch(
-        store,
-        workflow_id,
-        sk=sk,
-        data={
-            "end": now.isoformat(),
-            "end_uid": uid,
-        },
-    )
+    kvstore.driver.patch(store, workflow_id, sk=sk, data=data)
 
 
 def end_workflow(uid, workflow_id):
@@ -120,7 +148,16 @@ def end_workflow(uid, workflow_id):
     )
 
 
-def patch_state(workflow_id, data: dict[str, str | int | float]):
+def patch_state(
+    workflow_id, data: dict[str, str | int | float | kvstore.driver.Remove]
+):
+    assert "workflow_id" not in data
+    assert "num_tasks" not in data
+    assert "begin" not in data
+    assert "begin_uid" not in data
+    assert "end" not in data
+    assert "end_uid" not in data
+    assert "handler" not in data
     kvstore.driver.patch(
         store,
         workflow_id,

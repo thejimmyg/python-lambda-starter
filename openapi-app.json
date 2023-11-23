@@ -91,13 +91,9 @@
       "ProgressResponse": {
         "type": "object",
         "required": [
-          "workflow_id", "num_tasks", "begin"
+          "num_tasks", "begin"
         ],
         "properties": {
-          "workflow_id": {
-            "type": "string",
-            "description": "The ID of the workflow made up from a date and a unique ID"
-          },
           "num_tasks": {
             "type": "integer",
             "description": "The number of tasks that need completing"

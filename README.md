@@ -4,11 +4,6 @@ This is an extraction of the core ideas in [python-auth-tools](https://github.co
 
 The intention is to merge both projects over time so that python-auth-tools can be deployed on Lambda or standalone.
 
-TODO:
-
-- [ ] Test a valid authorization header in the tests
-- [ ] Re-enable the data type API smoke tests
-
 
 ## Principles
 
@@ -17,6 +12,7 @@ TODO:
 * Dynamic imports -> fast cold starts
 * Be able to edit everything in the lambda code editor -> perfect for experiments or dire emergencies
 * Rate limiting -> Never spend more than you expect
+
 
 ## Architecture
 
@@ -117,6 +113,7 @@ DEV_MODE=true PASSWORD=123 make smoke-local
 ```
 
 Then visit [http://localhost:8000](http://localhost:8000).
+
 
 ## Deploy
 

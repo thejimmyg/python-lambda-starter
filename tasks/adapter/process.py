@@ -1,8 +1,9 @@
+import datetime
+import importlib
 import os
+import tasks.driver
 import time
 import uuid
-import tasks.driver
-import importlib
 
 
 def run(workflow_id):
@@ -28,11 +29,43 @@ def run(workflow_id):
     print(next_task, state)
     for i in range(next_task, state["num_tasks"] + 1):
         time.sleep(delay_ms / 1000.0)
-        # End new
+        begun = False
+        ended = False
         now = time.time()
-        tasks.driver.begin_task(uid, workflow_id, state["num_tasks"], i)
-        handler_function(i, state, patch_state)
-        tasks.driver.end_task(uid, workflow_id, state["num_tasks"], i)
+        begun_at = datetime.datetime.now()
+
+        def register_begin(task_state):
+            nonlocal begun
+            begun = True
+            tasks.driver.begin_task(
+                uid, workflow_id, state["num_tasks"], i, task_state, begun_at
+            )
+
+        def register_end(patch_task_state=None):
+            nonlocal ended
+            ended = True
+            ended_at = datetime.datetime.now()
+            tasks.driver.end_task(
+                uid, workflow_id, state["num_tasks"], i, patch_task_state, ended_at
+            )
+
+        handler_function(i, state, patch_state, register_begin, register_end)
+
+        if not begun:
+            print(
+                f'WARNING: register_begin() was not called by {repr(state["handler"])} for task number {i}.'
+            )
+            tasks.driver.begin_task(
+                uid, workflow_id, state["num_tasks"], i, begun_at=begun_at
+            )
+        if not ended:
+            print(
+                f'WARNING: register_end() was not called by {repr(state["handler"])} for task number {i}.'
+            )
+            ended_at = datetime.datetime.now()
+            tasks.driver.end_task(
+                uid, workflow_id, state["num_tasks"], i, ended_at=ended_at
+            )
 
         elapsed_ms: float = (time.time() - now) * 1000
         if elapsed_ms > longest_task_ms:

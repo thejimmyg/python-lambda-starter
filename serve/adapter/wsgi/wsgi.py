@@ -14,7 +14,13 @@ class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
     pass
 
 
-def start_server(handlers: dict[str, Any], port=8000, host="localhost") -> None:
+def start_server(
+    handlers: dict[str, Any],
+    port=8000,
+    host="localhost",
+    security_header="authorization",
+    api_base_path="/api/",
+) -> None:
     def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
         method = environ["REQUEST_METHOD"].lower()
         path = environ["PATH_INFO"]
@@ -39,16 +45,33 @@ def start_server(handlers: dict[str, Any], port=8000, host="localhost") -> None:
         if "wsgi.input" in environ and environ.get("CONTENT_LENGTH"):
             request_body = environ["wsgi.input"].read(int(environ["CONTENT_LENGTH"]))
         verified_claims = None
-        if "authorization" in request_headers:
-            assert os.environ.get("DEV_MODE", "false").lower() == "true"
-            print("WARNING: In dev mode, not verifying the claims, just claiming to.")
-            token = request_headers["authorization"]
-            if " " in token:
-                token = token.split(" ")[-1]
-            s = token.split(".")[1].encode("utf8")
-            verified_claims = json.loads(
-                base64.urlsafe_b64decode(s + (b"=" * (4 - len(s) % 4)))
-            )
+        if path.startswith(api_base_path):
+            if security_header in request_headers:
+                assert os.environ.get("DEV_MODE", "false").lower() == "true"
+                print(
+                    "WARNING: In dev mode, not verifying the claims, just claiming to."
+                )
+                try:
+                    token = request_headers[security_header]
+                    if " " in token:
+                        token = token.split(" ")[-1]
+                    s = token.split(".")[1].encode("utf8")
+                    verified_claims = json.loads(
+                        base64.urlsafe_b64decode(s + (b"=" * (4 - len(s) % 4)))
+                    )
+                except Exception as e:
+                    print("ERROR decoding token:", e)
+            # Verified claims should be present for all pages under api_base_path. This is the role the API Gateway JWT Authorizer performs in an AWS deployment
+            if verified_claims is None:
+                message = b'{"message":"Unauthorized"}'
+                start_response(
+                    "401 Not Authorized",
+                    [
+                        ("Content-Length", str(len(message))),
+                        ("Content-Type", "application/json"),
+                    ],
+                )
+                return [message]
         http = Http(
             request=Request(
                 path=path,

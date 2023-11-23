@@ -106,12 +106,48 @@ def test_api_submit_input(lambda_url):
     import json
     import os
     import urllib.request
+    import base64
 
+    # No authorization header
+    data = json.dumps({"password": os.environ["PASSWORD"], "id": 123}).encode("utf8")
+    req = urllib.request.Request(lambda_url + "/api/submit_input", data=data)
+    try:
+        with urllib.request.urlopen(req) as response:
+            response.read()
+    except urllib.error.HTTPError as e:
+        resp = e.read()
+        assert resp == b'{"message":"Unauthorized"}', resp
+    else:
+        raise Exception("Expected a 401 to be raised")
+
+    # Invalid authorization header
     data = json.dumps({"password": os.environ["PASSWORD"], "id": 123}).encode("utf8")
     req = urllib.request.Request(
-        lambda_url + "/api/submit_input", data=data, headers={"authorization": "secret"}
+        lambda_url + "/api/submit_input",
+        data=data,
+        headers={"authorization": "invalid"},
     )
     try:
+        with urllib.request.urlopen(req) as response:
+            response.read()
+    except urllib.error.HTTPError as e:
+        resp = e.read()
+        assert resp == b'{"message":"Unauthorized"}', resp
+    else:
+        raise Exception("Expected a 401 to be raised")
+
+    authorization = "start." + base64.urlsafe_b64encode(b"{}").decode("utf8") + ".end"
+
+    if os.environ.get("DEV_MODE", "False").lower() == "true":
+        # Valid header for tests
+        data = json.dumps({"password": os.environ["PASSWORD"], "id": 123}).encode(
+            "utf8"
+        )
+        req = urllib.request.Request(
+            lambda_url + "/api/submit_input",
+            data=data,
+            headers={"authorization": authorization},
+        )
         with urllib.request.urlopen(req) as response:
             assert (
                 "Content-Type",
@@ -129,7 +165,7 @@ def test_api_submit_input(lambda_url):
         req = urllib.request.Request(
             lambda_url + "/api/submit_input",
             data=data,
-            headers={"authorization": "secret"},
+            headers={"authorization": authorization},
         )
         try:
             with urllib.request.urlopen(req) as response:
@@ -144,29 +180,47 @@ def test_api_submit_input(lambda_url):
             assert e.headers["Content-Type"] == "text/plain", e.headers.get(
                 "Content-Type"
             )
-    except urllib.error.HTTPError as e:
-        pass
     else:
-        raise Exception("Expected a 401 to be raised")
+        print(
+            "WARNING: Skipping API test because currently no way to generate a valid auth token for testing"
+        )
 
 
 def test_sdk_submit_input(lambda_url):
+    import base64
     import os
     import urllib
 
     from app.typeddicts import SubmitInput, app_submit_input
 
+    # Invalid authorization header
     try:
         result = app_submit_input(
             base_url=lambda_url + "/api",
             request_data=SubmitInput(password=os.environ["PASSWORD"], id=1),
-            authorization="secret",
+            authorization="invalid_token",
         )
-        assert "workflow_id" in result, result
     except urllib.error.HTTPError as e:
-        pass
+        resp = e.read()
+        assert resp == b'{"message":"Unauthorized"}', resp
     else:
         raise Exception("Expected a 401 to be raised")
+
+    # With valid authorization header for tests
+    if os.environ.get("DEV_MODE", "False").lower() == "true":
+        authorization = (
+            "start." + base64.urlsafe_b64encode(b"{}").decode("utf8") + ".end"
+        )
+        result = app_submit_input(
+            base_url=lambda_url + "/api",
+            request_data=SubmitInput(password=os.environ["PASSWORD"], id=1),
+            authorization=authorization,
+        )
+        assert "workflow_id" in result, result
+    else:
+        print(
+            "WARNING: Skipping API test because currently no way to generate a valid auth token for testing"
+        )
 
 
 if __name__ == "__main__":

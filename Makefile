@@ -36,8 +36,14 @@ check: app/typeddicts.py
 	  stack-deploy-lambda.template
 
 test: app/typeddicts.py $(OBJS)
+	@echo 'Running kvstore tests ...'
 	PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/unit.py
+	@echo 'done.'
+	@echo 'Running openapi tests ...'
 	DEV_MODE=true PYTHONPATH=$(PWD) PASSWORD=somepassword KVSTORE_DYNAMODB_TABLE_NAME=tasks TASKS_STATE_MACHINE_ARN=dummyarn AWS_REGION=test .venv/bin/python3 test/openapi.py
+	@echo 'done.'
+	@echo
+	@echo "WARNING: Please to be sure to run 'DEV_MODE=true PASSWORD=123 make serve' and then in a different terminal run 'DEV_MODE=true PASSWORD=123 make smoke-local' to run the smoke tests ..."
 
 format: format-python format-cfn
 

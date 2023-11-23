@@ -106,12 +106,14 @@ make test
 
 ## Local
 
+Setting `DEV_MODE` to `true` shows that you are happy for JWT tokens not to actually be verified. This is useful for local testing.
+
 ```sh
-PASSWORD=123 make serve
+DEV_MODE=true PASSWORD=123 make serve
 ```
 
 ```sh
-PASSWORD=123 make smoke-local
+DEV_MODE=true PASSWORD=123 make smoke-local
 ```
 
 Then visit [http://localhost:8000](http://localhost:8000).

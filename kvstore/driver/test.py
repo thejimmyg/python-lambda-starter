@@ -4,7 +4,7 @@
 import math
 import time
 
-from kvstore.driver import delete, iterate, patch, put, NotFound, Remove
+from kvstore.driver import delete, iterate, patch, put, NotFound, Remove, get
 
 store = "test"
 
@@ -133,7 +133,12 @@ def main():
     assert sk == "/", sk
     assert result == {"banana": 3.14, "foo": "hello"}, result
     assert ttl == start_ttl, (start_ttl, ttl)
-    print("Stored foo1 successfully")
+
+    get_result, get_ttl = get(store=store, pk="foo1", sk="/", consistent=True)
+    assert get_result == result, f"Results differ: {repr(result)}, {repr(get_result)}"
+    assert get_ttl == ttl, f"TTLs differ: {repr(ttl)}, {repr(get_ttl)}"
+
+    print("Stored foo1 successfully, get and iterate results are the same")
 
     start_ttl = time.time() + 0.1
     put(store=store, pk="foo1", data=dict(banana=3.15, foo="goodbye"), ttl=start_ttl)
@@ -144,7 +149,12 @@ def main():
     assert sk == "/", sk
     assert result == {"banana": 3.15, "foo": "goodbye"}, result
     assert ttl == start_ttl, ttl
-    print("Updated foo1 successfully")
+
+    get_result, get_ttl = get(store=store, pk="foo1", sk="/", consistent=True)
+    assert get_result == result, f"Results differ: {repr(result)}, {repr(get_result)}"
+    assert get_ttl == ttl, f"TTLs differ: {repr(ttl)}, {repr(get_ttl)}"
+
+    print("Updated foo1 successfully, get and iterate results are the same")
 
     put(
         store=store,
@@ -158,7 +168,14 @@ def main():
     assert sk == "/", sk
     assert result == {"banana": 3.16, "foo": "bye"}, result
     assert ttl == None, ttl
-    print("Updated foo1 successfully without a ttl")
+
+    get_result, get_ttl = get(store=store, pk="foo1", sk="/", consistent=True)
+    assert get_result == result, f"Results differ: {repr(result)}, {repr(get_result)}"
+    assert get_ttl == ttl, f"TTLs differ: {repr(ttl)}, {repr(get_ttl)}"
+
+    print(
+        "Updated foo1 successfully without a ttl, get and iterate results are the same"
+    )
 
     time.sleep(0.21)
     results, next_ = iterate(store=store, pk="foo1", consistent=True)
@@ -168,7 +185,14 @@ def main():
     assert sk == "/", sk
     assert result == {"banana": 3.16, "foo": "bye"}, result
     assert ttl == None, ttl
-    print("foo1 is still there after the ttl time, now that no ttl has been set")
+
+    get_result, get_ttl = get(store=store, pk="foo1", sk="/", consistent=True)
+    assert get_result == result, f"Results differ: {repr(result)}, {repr(get_result)}"
+    assert get_ttl == ttl, f"TTLs differ: {repr(ttl)}, {repr(get_ttl)}"
+
+    print(
+        "foo1 is still there after the ttl time, now that no ttl has been set, get and iterate results are the same"
+    )
 
     # Create an item
     put(
@@ -191,8 +215,13 @@ def main():
     assert sk == "/", sk
     assert result == {"banana": 3.18, "foo": "hello", "bar": "bye"}, result
     assert ttl == start_ttl, ttl
+
+    get_result, get_ttl = get(store=store, pk="foo2", sk="/", consistent=True)
+    assert get_result == result, f"Results differ: {repr(result)}, {repr(get_result)}"
+    assert get_ttl == ttl, f"TTLs differ: {repr(ttl)}, {repr(get_ttl)}"
+
     # Update the patch, changing the ttl
-    start_ttl = time.time() + 0.1
+    start_ttl = time.time() + 0.2  # Has to be long enough to run these commands
     patch(
         store=store,
         pk="foo2",
@@ -206,6 +235,11 @@ def main():
     assert sk == "/", sk
     assert result == {"banana": 3.19, "foo": "hello", "bar": "bye"}, result
     assert ttl == start_ttl, ttl
+
+    get_result, get_ttl = get(store=store, pk="foo2", sk="/", consistent=True)
+    assert get_result == result, f"Results differ: {repr(result)}, {repr(get_result)}"
+    assert get_ttl == ttl, f"TTLs differ: {repr(ttl)}, {repr(get_ttl)}"
+
     # Update the foo value, don't change the ttl
     patch(
         store=store,
@@ -219,6 +253,10 @@ def main():
     assert sk == "/", sk
     assert result == {"banana": 3.19, "foo": "hello1", "bar": "bye"}, result
     assert ttl == start_ttl, ttl
+
+    get_result, get_ttl = get(store=store, pk="foo2", sk="/", consistent=True)
+    assert get_result == result, f"Results differ: {repr(result)}, {repr(get_result)}"
+    assert get_ttl == ttl, f"TTLs differ: {repr(ttl)}, {repr(get_ttl)}"
     # Remove the ttl and bar value
     patch(
         store=store,
@@ -233,7 +271,11 @@ def main():
     assert sk == "/", sk
     assert ttl == None, ttl
     assert result == {"banana": 3.18, "foo": "hello"}, result
-    print("foo2 is successfully patched")
+
+    get_result, get_ttl = get(store=store, pk="foo2", sk="/", consistent=True)
+    assert get_result == result, f"Results differ: {repr(result)}, {repr(get_result)}"
+    assert get_ttl == ttl, f"TTLs differ: {repr(ttl)}, {repr(get_ttl)}"
+    print("foo2 is successfully patched, get and iterate results the same")
 
     put(
         store=store,
@@ -245,18 +287,33 @@ def main():
     try:
         print("===", iterate(store=store, pk="foo3", consistent=True))
     except NotFound:
-        print("Cannot print foo3 since it has already expired")
+        print("Cannot iterate foo3 since it has already expired")
     else:
-        raise Exception("Showed the foo3 result when it should have expired")
+        raise Exception("Showed the foo3 iterate result when it should have expired")
+    try:
+        print("===", get(store=store, pk="foo3", consistent=True))
+    except NotFound:
+        print("Cannot get foo3 since it has already expired")
+    else:
+        raise Exception("Showed the foo3 get result when it should have expired")
 
     put(store=store, pk="foo4", data=dict(banana=3.14, foo="hello"))
     delete(store=store, pk="foo4")
     try:
         print(iterate(store=store, pk="foo4", consistent=True))
     except NotFound:
-        print("Cannot print foo4 since it has been successfully deleted")
+        print("Cannot iterate foo4 since it has been successfully deleted")
     else:
-        raise Exception("Showed the foo4 result when it should have expired")
+        raise Exception(
+            "Showed the foo4 iterate result when it should have been deleted"
+        )
+
+    try:
+        print(get(store=store, pk="foo4", consistent=True))
+    except NotFound:
+        print("Cannot get foo4 since it has been successfully deleted")
+    else:
+        raise Exception("Showed the foo4 get result when it should have been deleted")
 
     # A large key forces the results to be returned in batches in the DynamoDB driver so that we can test next_
     # The size is chosen so that only two rows containing the large key can appear in one batch
@@ -351,6 +408,20 @@ def main():
         print(
             f"Iteration with multiple and {i==0 and 'small key' or 'large key'} working correctly"
         )
+
+    put(
+        store=store,
+        pk="foo5",
+    )
+    assert ({}, None) == get(store=store, pk="foo5", consistent=True)
+    results, next_ = iterate(store=store, pk="foo5", consistent=True)
+    assert len(results) == 1, results
+    assert next_ is None
+    sk, result, ttl = results[0]
+    assert sk == "/", sk
+    assert result == {}, result
+    assert ttl is None
+    print("put foo5 key with no data, get and iterate behave correctly")
 
 
 if __name__ == "__main__":

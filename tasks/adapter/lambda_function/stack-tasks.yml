@@ -73,6 +73,7 @@ Resources:
             Action:
               - dynamodb:Query
               - dynamodb:PutItem
+              - dynamodb:GetItem
               - dynamodb:UpdateItem
               - dynamodb:DeleteItem
             Resource:
@@ -160,3 +161,7 @@ Outputs:
   StateMachineArn:
     Description: The ARN of the state machine that keeps the tasks lambda running
     Value: !Ref StateMachine
+
+  StateMachineName:
+    Description: The Name of the state machine that keeps the tasks lambda running
+    Value: !GetAtt StateMachine.Name

@@ -82,6 +82,7 @@ Resources:
         StartingLambdaExecutionRoleFriendlyName: !GetAtt HttpLambdaStack.Outputs.HttpLambdaExecutionRoleFriendlyName
         DynamoDbTableArn: !GetAtt DynamoDbTable.Arn
         StateMachineArn: !GetAtt TaskStack.Outputs.StateMachineArn
+        StateMachineName: !GetAtt TaskStack.Outputs.StateMachineName
       TemplateURL: tasks/driver/stack-tasks-start.yml
 
   CertificateStack:

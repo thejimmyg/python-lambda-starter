@@ -106,6 +106,14 @@
             "type": "string",
             "description": "An ISO format date representing the end date and time of the workflow"
           },
+          "execution": {
+            "type": "string",
+            "description": "The execution ID of the managing procecss"
+          },
+          "status": {
+            "type": "string",
+            "description": "Can be missing, or the values 'SUCCESS' or 'FAILED'"
+          },
           "tasks": {
             "type": "array",
             "items": {

@@ -11,6 +11,7 @@ from .kvstore_local import (
     get_next_task,
     progress,
     patch_state,
+    _patch_state,
 )
 
 __all__ = [
@@ -22,7 +23,9 @@ __all__ = [
     "end_workflow",
     "patch_state",
     "begin_state_machine",
+    "get_execution_status",
 ]
+
 stepfunctions = boto3.client(
     service_name="stepfunctions", region_name=os.environ["AWS_REGION"]
 )
@@ -34,5 +37,9 @@ def begin_state_machine(workflow_id):
         stateMachineArn=os.environ["TASKS_STATE_MACHINE_ARN"],
         input=json.dumps({"store": store, "workflow_id": workflow_id}),
     )
-    # print(response)
-    return dict(success=True)
+    _patch_state(workflow_id, {"execution": response["executionArn"]})
+    return response["executionArn"]
+
+
+def get_execution_status(executionArn):
+    return stepfunctions.describe_execution(executionArn=executionArn)["status"]

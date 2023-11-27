@@ -18,6 +18,11 @@ Parameters:
     Type: String
     MinLength: 3
 
+  StateMachineName:
+    Description: The Name of the state machine that keeps the tasks lambda alive
+    Type: String
+    MinLength: 3
+
 Resources:
   StartingLambdaStateMachineStartExecutionPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -32,6 +37,24 @@ Resources:
               - states:StartExecution
             Resource:
               - !Ref StateMachineArn
+
+      # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
+      Roles:
+        - !Ref StartingLambdaExecutionRoleFriendlyName
+
+  StartingLambdaStateMachineDescribeExecutionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}StartingLambdaDescribeExecutionPolicy'
+      Description: Managed policy for a Lambda function to see a state machine execution status
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - states:DescribeExecution
+            Resource:
+              - !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${StateMachineName}:*'
 
       # Define the role here, rather than the managed policy on the role, to avoid a circular dependency
       Roles:

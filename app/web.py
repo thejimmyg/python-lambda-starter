@@ -4,6 +4,7 @@ import urllib.parse
 from . import operation
 from .template import Html, Test, Base, Main
 from .typeddicts import AppSecurity
+import tasks.driver
 
 
 def test(http):
@@ -55,8 +56,13 @@ def make_handle_static(base_path):
             os.path.dirname(os.path.abspath(os.path.normpath(__file__))), "static"
         )
         with open(src, "r") as fp:
-            type, content = fp.read().strip().split("\n")
-            http.response.headers["content-type"] = type
+            parts = fp.read().strip().split("\n")
+            if len(parts) == 1:
+                type_ = parts[0]
+                content = ""
+            else:
+                type_, content = parts
+            http.response.headers["content-type"] = type_
             http.response.body = http.response.Base64(content)
 
     return handle_static
@@ -96,7 +102,28 @@ def progress(http):
         # Pretending we have authorized
         security=AppSecurity(access_token="", verified_claims={}),
     )
-    http.response.body = Main("Progress", main=json.dumps(progress_response))
+    # Can determine the status as follows:
+    statuses = {
+        "RUNNING": "Running",
+        "SUCCEEDED": "Succeeded",
+        "FAILED": "Failed",
+        "TIMED_OUT": "Timed Out",
+        "ABORTED": "Aborted",
+        "PENDING_REDRIVE": "Pending Restart",
+    }
+    status = None
+    if "begin" in progress_response:
+        status = "RUNNING"
+        execution_status = tasks.driver.get_execution_status(
+            progress_response["execution"]
+        )
+        if execution_status in statuses:
+            status = statuses[execution_status]
+    if "end" in progress_response:
+        status = "SUCCEEDED"
+    if "status" in progress_response and "status" == "FAILED":
+        status = "FAILED"
+    http.response.body = Main("Progress", main=json.dumps((status, progress_response)))
 
 
 def home(http):

@@ -7,7 +7,7 @@ from typing import Any
 
 from .shared import NotFound, Remove
 
-config_store_dir = os.environ["STORE_DIR"]
+config_store_dir = os.environ.get("STORE_DIR", ".")
 config_driver_key_value_store_dir = os.path.join(
     config_store_dir, "driver_key_value_store"
 )
@@ -72,7 +72,9 @@ def cleanup():
             _conn.close()
 
 
-def put(store: str, pk: str, data, sk="/", ttl=None):
+def put(store: str, pk: str, data=None, sk="/", ttl=None):
+    if data is None:
+        data = {}
     assert "pk" not in data
     assert "sk" not in data
     assert "ttl" not in data
@@ -180,6 +182,28 @@ def iterate(
             results.append((row[2], result, row[3]))
             last_row = row[2]
         return results, None
+
+
+# consistent is ignored
+def get(
+    store, pk, sk="/", consistent=False
+) -> tuple[dict[str, int | float | str], float | int | None]:
+    if _cur is None:
+        init()
+    assert _conn is not None, "Database not initilaized, no _conn object."
+    assert _cur is not None, "Database not initilaized, no _cur object."
+    assert sk[0] == "/"
+    with rlock:
+        sql = "select data, ttl from store where store = ? AND pk = ? AND sk = ? AND (ttl is NULL OR ttl > ?)"
+        values = [store, pk, sk, time.time()]
+        _cur.execute(sql, values)
+        rows = _cur.fetchall()
+        # helper_log(__file__, len(rows), rows)
+        if len(rows) == 0:
+            raise NotFound(f"No such pk '{pk}' in the '{store}' store")
+        data = json.loads(rows[0][0])
+        ttl = rows[0][1]
+        return data, ttl
 
 
 def patch(store, pk, data, sk="/", ttl="notchanged"):

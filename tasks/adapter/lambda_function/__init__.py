@@ -85,19 +85,13 @@ def make_lambda_handler():
             handler_function(i, state, patch_state, register_begin, register_end)
 
             if not begun:
-                print(
-                    f'WARNING: register_begin() was not called by {repr(state["handler"])} for task number {i}.'
+                raise Exception(
+                    f'register_begin() was not called by {repr(state["handler"])} for task number {i}.'
                 )
-                tasks.driver.begin_task(
-                    uid, workflow_id, state["num_tasks"], i, begun_at=begun_at
-                )
+
             if not ended:
-                print(
-                    f'WARNING: register_end() was not called by {repr(state["handler"])} for task number {i}.'
-                )
-                ended_at = datetime.datetime.now()
-                tasks.driver.end_task(
-                    uid, workflow_id, state["num_tasks"], i, ended_at=ended_at
+                raise Exception(
+                    f'register_end() was not called by {repr(state["handler"])} for task number {i}.'
                 )
 
             elapsed_ms: float = (time.time() - now) * 1000

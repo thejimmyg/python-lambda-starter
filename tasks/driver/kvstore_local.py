@@ -17,6 +17,8 @@ def begin_workflow(uid, num_tasks, handler, state=None):
     assert "begin_uid" not in state
     assert "end" not in state
     assert "end_uid" not in state
+    assert "status" not in state
+    assert "execution" not in state
     data = {
         "num_tasks": int(num_tasks),
         "handler": str(handler),
@@ -135,20 +137,18 @@ def end_task(
     kvstore.driver.patch(store, workflow_id, sk=sk, data=data)
 
 
-def end_workflow(uid, workflow_id):
+def end_workflow(uid, workflow_id, status="SUCCEEDED"):
+    assert status in ["SUCCEEDED", "FAILED"]
     now = datetime.datetime.now()
     kvstore.driver.patch(
         store,
         workflow_id,
         sk="/",
-        data={
-            "end": now.isoformat(),
-            "end_uid": uid,
-        },
+        data={"end": now.isoformat(), "end_uid": uid, "status": status},
     )
 
 
-def patch_state(
+def _patch_state(
     workflow_id, data: dict[str, str | int | float | kvstore.driver.Remove]
 ):
     assert "workflow_id" not in data
@@ -158,12 +158,20 @@ def patch_state(
     assert "end" not in data
     assert "end_uid" not in data
     assert "handler" not in data
+    assert "status" not in data
     kvstore.driver.patch(
         store,
         workflow_id,
         sk="/",
         data=data,
     )
+
+
+def patch_state(
+    workflow_id, data: dict[str, str | int | float | kvstore.driver.Remove]
+):
+    assert "execution" not in data
+    return _patch_state(workflow_id=workflow_id, data=data)
 
 
 import subprocess
@@ -174,4 +182,9 @@ def begin_state_machine(workflow_id):
     process = subprocess.Popen(
         [sys.executable, "tasks/adapter/process.py", workflow_id]
     )
-    return dict(success=True, pid=process.pid)
+    _patch_state(workflow_id, {"execution": process.pid})
+    return process.pid
+
+
+def get_execution_status(pid):
+    return "UNKNOWN"

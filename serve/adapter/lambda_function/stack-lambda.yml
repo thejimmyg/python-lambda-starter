@@ -117,6 +117,7 @@ Resources:
             Action:
               - dynamodb:Query
               - dynamodb:PutItem
+              - dynamodb:GetItem
               - dynamodb:UpdateItem
               - dynamodb:DeleteItem
             Resource:

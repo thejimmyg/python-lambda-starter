@@ -242,7 +242,7 @@ def test_sdk_submit_input(lambda_url):
             authorization=authorization,
         )
         assert set(progress.keys()) == set(
-            ["num_tasks", "begin", "begin_uid"]
+            ["num_tasks", "begin", "begin_uid", "execution"]
         ), progress.keys()
         assert progress["num_tasks"] == 2, progress
         # XXX What about the state?
@@ -255,7 +255,7 @@ def test_sdk_submit_input(lambda_url):
             authorization=authorization,
         )
         assert sorted(list(progress.keys())) == sorted(
-            ["num_tasks", "begin", "begin_uid", "tasks", "banana"]
+            ["num_tasks", "begin", "begin_uid", "tasks", "banana", "execution"]
         ), progress.keys()
         assert dict(progress)["banana"] == "fruit", dict(progress)["banana"]
         assert progress["num_tasks"] == 2, progress["num_tasks"]
@@ -276,7 +276,7 @@ def test_sdk_submit_input(lambda_url):
             authorization=authorization,
         )
         assert sorted(list(progress.keys())) == sorted(
-            ["banana", "num_tasks", "begin", "tasks", "begin_uid"]
+            ["banana", "num_tasks", "begin", "tasks", "begin_uid", "execution"]
         ), progress.keys()
         assert progress["num_tasks"] == 2, progress["num_tasks"]
         assert len(progress["tasks"]) == 2, progress["tasks"]
@@ -314,8 +314,19 @@ def test_sdk_submit_input(lambda_url):
             authorization=authorization,
         )
         assert sorted(list(progress.keys())) == sorted(
-            ["num_tasks", "begin", "begin_uid", "banana", "end", "end_uid", "tasks"]
+            [
+                "num_tasks",
+                "begin",
+                "begin_uid",
+                "banana",
+                "end",
+                "end_uid",
+                "tasks",
+                "execution",
+                "status",
+            ]
         ), progress.keys()
+
         assert progress["num_tasks"] == 2, progress["num_tasks"]
         assert len(progress["tasks"]) == 2, progress["tasks"]
         assert progress["tasks"][0]["task"] == 2

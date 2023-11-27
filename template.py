@@ -25,12 +25,16 @@ class Html:
 
 
 class Base:
-    def __init__(self, title, body):
+    def __init__(self, title, body, head_end=None):
         self._title = title
         self._body = body
+        self._head_end = head_end
 
     def title(self):
         return self._title
+
+    def head(self):
+        return Html("") + (self._head_end or "")
 
     def body(self):
         return self._body
@@ -52,6 +56,11 @@ class Base:
                 """</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    """
+            )
+            + self.head()
+            + Html(
+                """
   </head>
   <body>
 """

@@ -25,6 +25,7 @@ def test_template_render_home():
     <title>Home</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    
   </head>
   <body>
     <main>

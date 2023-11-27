@@ -37,6 +37,7 @@ Parameters:
 
 Conditions:
   UseCors: !Not [!Equals [!Ref "CorsOrigins", ""]]
+
   UseJwtAuthorizer: !Not [!Equals [!Ref "Issuer", ""]]
 
 Resources:
@@ -61,16 +62,16 @@ Resources:
 
   JwtAuthorizer:
     Type: AWS::ApiGatewayV2::Authorizer
-    Condition: UseJwtAuthorizer
     Properties:
       Name: !Sub '${AWS::StackName}-JwtAuthorizer'
       ApiId: !Ref Api
       AuthorizerType: JWT
       IdentitySource:
-        - '$request.header.Authorization'
+        - $request.header.Authorization
       JwtConfiguration:
-        Audience: !Split [" ", !Ref Audiences]
+        Audience: !Split [' ', !Ref Audiences]
         Issuer: !Ref Issuer
+    Condition: UseJwtAuthorizer
 
   V1Stage:
     Type: AWS::ApiGatewayV2::Stage
@@ -109,17 +110,17 @@ Resources:
         - - integrations
           - !Ref Integration
 
-
   ApiRoute:
+
     # Could add in AuthorizationScopes too to limit access: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigatewayv2-route.html#cfn-apigatewayv2-route-authorizationscopes
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref Api
-      RouteKey: 'ANY /api/{proxy+}'
+      RouteKey: ANY /api/{proxy+}
 
       # The authorization type for the route. For WebSocket APIs, valid values are NONE for open access, AWS_IAM for using AWS IAM permissions, and CUSTOM for using a Lambda authorizer. For HTTP APIs, valid values are NONE for open access, JWT for using JSON Web Tokens, AWS_IAM for using AWS IAM permissions, and CUSTOM for using a Lambda authorizer.
-      AuthorizationType: !If [ UseJwtAuthorizer, "JWT", "NONE"]
-      AuthorizerId: !If [UseJwtAuthorizer, !Ref JwtAuthorizer, "AWS::NoValue"]
+      AuthorizationType: !If [UseJwtAuthorizer, JWT, NONE]
+      AuthorizerId: !If [UseJwtAuthorizer, !Ref JwtAuthorizer, 'AWS::NoValue']
       Target: !Join
         - /
         - - integrations

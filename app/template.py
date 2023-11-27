@@ -3,7 +3,7 @@ from template import Html, Base
 
 class Main(Base):
     def __init__(self, title, main):
-        self._title = "Main - " + title
+        super().__init__("Main - " + title, body=None)
         self._main = main
 
     def body(self):
@@ -27,7 +27,7 @@ class Main(Base):
 
 class Test(Base):
     def __init__(self, title):
-        self._title = title
+        super().__init__(title, body=None)
 
     def body(self):
         body = Html("    <main>\n      <h1>Home</h1>\n<ul>\n")

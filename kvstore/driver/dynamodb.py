@@ -9,7 +9,9 @@ from .shared import NotFound, Remove
 dynamodb = boto3.client(service_name="dynamodb", region_name=os.environ["AWS_REGION"])
 
 
-def put(store, pk, data, sk="/", ttl=None):
+def put(store, pk, data=None, sk="/", ttl=None):
+    if data is None:
+        data = {}
     assert "/" not in store
     assert sk[0] == "/"
     if ttl is not None:
@@ -206,6 +208,39 @@ def iterate(
             # e.g.  {'pk': {'S': 'test/multiple'}, 'sk': {'S': '/2'}}
             "LastEvaluatedKey" in r and r["LastEvaluatedKey"]["sk"]["S"] or None,
         )
+
+
+def get(
+    store, pk, sk="/", consistent=False
+) -> tuple[dict[str, int | float | str], float | int | None]:
+    assert "/" not in store
+    assert sk[0] == "/"
+    actual_pk = f"{store}/{pk}"
+    r = dynamodb.get_item(
+        TableName=os.environ["KVSTORE_DYNAMODB_TABLE_NAME"],
+        ConsistentRead=consistent,
+        Key={
+            "pk": {"S": actual_pk},
+            "sk": {"S": sk},
+        },
+    )
+    if "Item" not in r:
+        raise NotFound(f"No such pk '{pk}' in the '{store}' store")
+    parts = r["Item"]["pk"]["S"].split("/")
+    store = parts[0]
+    pk = "/".join(parts[1:])
+    sk = r["Item"]["sk"]["S"]
+    assert sk[0] == "/"
+    del r["Item"]["pk"]
+    del r["Item"]["sk"]
+    ttl = None
+    if "ttl" in r["Item"]:
+        ttl = float(r["Item"]["ttl"]["N"])
+        del r["Item"]["ttl"]
+    if ttl is not None and ttl < time.time():
+        raise NotFound(f"No such pk '{pk}' in the '{store}' store")
+    data = _data_from_dynamo_format(r["Item"])
+    return data, ttl
 
 
 def _data_to_dynamo_format(data):

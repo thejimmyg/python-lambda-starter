@@ -2,7 +2,7 @@ SRCS := $(shell find static -type f )
 OBJS := $(SRCS:%=app/%.txt)
 
 
-.PHONY: clean all test deploy check format deploy-lambda check-env venv deploy-check-env smoke serve smoke-local
+.PHONY: clean all test deploy check format deploy-lambda check-env venv deploy-check-env smoke serve smoke-local check-python
 
 all: app/typeddicts.py $(OBJS)
 
@@ -18,8 +18,11 @@ venv:
 
 deploy:
 	@echo "Did you mean 'make deploy-lambda'?"
-check: app/typeddicts.py
+
+check-python:
 	.venv/bin/mypy --check-untyped-defs .
+
+check: app/typeddicts.py
 	.venv/bin/cfn-lint \
 	  stack-dns-zone.yml \
 	  serve/adapter/lambda_function/cloudfront/stack-lambda-url.yml \

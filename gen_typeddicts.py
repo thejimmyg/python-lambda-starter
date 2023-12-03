@@ -670,7 +670,8 @@ def main(prefix, filename):
             if query:
                 print("    query={}")
                 print("\n".join(query))
-                print("    url += '?' + urlencode(query)")
+                print("    if query:")
+                print("        url += '?' + urlencode(query)")
 
             print("    headers={'Content-Type': 'application/json' }")
             if headers:

@@ -87,7 +87,8 @@ def begin_task(
         datetime.datetime.now()
     # Help the type checker
     assert begun_at
-    sk = f"/task/{num_tasks-i}/{i}"
+    pad_length = len(str(num_tasks))
+    sk = f"/task/{str(num_tasks-i).zfill(pad_length)}/{str(i).zfill(pad_length)}"
     data = {
         "begin": begun_at.isoformat(),
         "begin_uid": uid,
@@ -133,7 +134,8 @@ def end_task(
         assert "end" not in patch_task_state
         assert "end_uid" not in patch_task_state
         data.update(patch_task_state)
-    sk = f"/task/{num_tasks-i}/{i}"
+    pad_length = len(str(num_tasks))
+    sk = f"/task/{str(num_tasks-i).zfill(pad_length)}/{str(i).zfill(pad_length)}"
     kvstore.driver.patch(store, workflow_id, sk=sk, data=data)
 
 

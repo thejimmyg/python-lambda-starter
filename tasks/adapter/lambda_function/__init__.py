@@ -33,8 +33,7 @@ if encoded_environment:
 
 # Must come after the environment is set up
 import tasks.driver
-
-from ..shared import Error
+from tasks.adapter.shared import make_task, Abort, RenderableTaskAbort, OutOfTime
 
 
 def make_lambda_handler():
@@ -46,52 +45,72 @@ def make_lambda_handler():
         safety_delay_ms = int((os.environ.get("SAFETY_DELAY_MS", "0")))
         print(event, context, uid, delay_ms, safety_multiple, safety_delay_ms)
         workflow_id = event["workflow_id"]
+        next_task, workflow_state, task_state = tasks.driver.get_next_task(workflow_id)
 
-        next_task, state = tasks.driver.get_next_task(workflow_id)
-        module, obj = state["handler"].split(":")
+        if "abort" in workflow_state and str(workflow_state["abort"]).lower() in [
+            "1",
+            "true",
+        ]:
+            Abort("Workflow aborted via abort key in workflow state")
+
+        if task_state is not None and "end" in task_state:
+            # It must have already been run, and failed. Let's reset it so it can run again.
+            next_task = next_task - 1
+            # When begin task is called below, it will overwrite the old data
+
+        module, obj = workflow_state["handler"].split(":")
         m = importlib.import_module(module)
         handler_function = getattr(m, obj)
         # This algorithm will always try and run at least one task
         longest_task_ms = 0.0
 
-        def patch_state(data):
+        def patch_workflow_state(data):
             # Save to store
             tasks.driver.patch_state(workflow_id, data)
             # And update locally
-            state.update(data)
+            workflow_state.update(data)
 
-        for i in range(next_task, state["num_tasks"] + 1):
+        for number in range(next_task, workflow_state["num_tasks"] + 1):
             time.sleep(delay_ms / 1000.0)
-            begun = False
-            ended = False
+            task = make_task(
+                uid,
+                workflow_id=workflow_id,
+                workflow_state=workflow_state,
+                patch_workflow_state=patch_workflow_state,
+                number=number,
+            )
+
             now = time.time()
-            begun_at = datetime.datetime.now()
 
-            def register_begin(task_state):
-                nonlocal begun
-                begun = True
-                tasks.driver.begin_task(
-                    uid, workflow_id, state["num_tasks"], i, task_state, begun_at
-                )
-
-            def register_end(patch_task_state=None):
-                nonlocal ended
-                ended = True
-                ended_at = datetime.datetime.now()
+            try:
+                handler_function(task)
+            except Abort as a:
+                if isinstance(a, RenderableTaskAbort):
+                    task.correctly_escaped_html_status_message = a.render()
                 tasks.driver.end_task(
-                    uid, workflow_id, state["num_tasks"], i, patch_task_state, ended_at
+                    uid,
+                    workflow_id,
+                    workflow_state["num_tasks"],
+                    number,
+                    task.correctly_escaped_html_status_message,
+                    task.end_state_patches,
+                    datetime.datetime.now(),
+                )
+                raise
+            else:
+                tasks.driver.end_task(
+                    uid,
+                    workflow_id,
+                    workflow_state["num_tasks"],
+                    number,
+                    task.correctly_escaped_html_status_message,
+                    task.end_state_patches,
+                    datetime.datetime.now(),
                 )
 
-            handler_function(i, state, patch_state, register_begin, register_end)
-
-            if not begun:
+            if not task._begun:
                 raise Exception(
-                    f'register_begin() was not called by {repr(state["handler"])} for task number {i}.'
-                )
-
-            if not ended:
-                raise Exception(
-                    f'register_end() was not called by {repr(state["handler"])} for task number {i}.'
+                    f'task.begin() was not called by {repr(workflow_state["handler"])} for task number {number}.'
                 )
 
             elapsed_ms: float = (time.time() - now) * 1000
@@ -101,7 +120,7 @@ def make_lambda_handler():
             remaining_ms = context.get_remaining_time_in_millis()
             needed_ms = (longest_task_ms * safety_multiple) + safety_delay_ms + delay_ms
             if remaining_ms < needed_ms:
-                raise Error(
+                raise OutOfTime(
                     f"Out of time to run the next task. Need {needed_ms} ms but only have {remaining_ms}"
                 )
 

@@ -11,6 +11,7 @@ if os.environ.get("TASKS_STATE_MACHINE_ARN"):
         progress,
         patch_state,
         get_execution_status,
+        get_task,
     )
 else:
     from .kvstore_local import (
@@ -23,6 +24,7 @@ else:
         progress,
         patch_state,
         get_execution_status,
+        get_task,
     )
 
 
@@ -36,8 +38,5 @@ __all__ = (
     "begin_state_machine",
     "patch_state",
     "get_execution_status",
+    "get_task",
 )
-
-
-class Abort(Exception):
-    pass

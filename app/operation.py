@@ -30,7 +30,7 @@ def submit_input(input: SubmitInput, security: AppSecurity) -> SubmitInputRespon
 
 def progress(workflow_id: str, security: AppSecurity) -> ProgressResponse:
     assert security["verified_claims"] is not None, "401"
-    progress, task_list = tasks.driver.progress(workflow_id=workflow_id)
+    progress, task_list, task_number = tasks.driver.progress(workflow_id=workflow_id)
     progress_response = progress.copy()
     if task_list:
         progress_response["tasks"] = task_list

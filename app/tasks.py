@@ -1,15 +1,29 @@
 import time
+from template import Html
+from tasks.adapter.shared import RenderableTaskAbort
 
 
 def wait():
     time.sleep(3)
 
 
-def count(task_number, state, patch_state, register_begin, register_end):
-    print(task_number, state)
-    register_begin(task_state={"starting": task_number})
-    if task_number == 1:
-        print("Patching state")
-        patch_state({"banana": "fruit"})
+class InvalidCount(RenderableTaskAbort):
+    def __init__(self, count):
+        self.count = count
+        super().__init__(self, "Unexpected count")
+
+    def render(self):
+        return Html("<strong>Abort:</strong> Got an invalid count: ") + str(self.count)
+
+
+def count(task):
+    print(task.number, task.workflow_state)
+    task.begin("Starting ...", {"starting": task.number})
+    if task.number == 1:
+        print("Patching workflow state")
+        task.patch_workflow_state({"banana": "fruit"})
+    if task.number == 100:
+        raise InvalidCount(task.number)
     wait()
-    register_end(patch_task_state={"ending": task_number})
+    # This will be saved at the end of the task
+    task.end_state_patches["ending"] = task.number

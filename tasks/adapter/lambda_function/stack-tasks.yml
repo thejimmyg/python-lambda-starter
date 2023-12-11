@@ -23,6 +23,11 @@ Parameters:
     Type: String
     MinLength: "1"
 
+  TasksLambdaTimeout:
+    Description: How long should the tasks lambda be allowed to run in seconds
+    Type: Number
+    Default: 900
+
 Conditions:
   HasLayers: !Not [!Equals [!Ref Layers, ""]]
 
@@ -44,7 +49,7 @@ Resources:
       Role: !GetAtt TasksLambdaExecutionRole.Arn
       Code: ../../../tasks-lambda.zip
       Runtime: python3.11
-      Timeout: 900
+      Timeout: !Ref TasksLambdaTimeout
       Handler: index.lambda_handler
       Architectures:
         - arm64
@@ -151,10 +156,16 @@ Resources:
             Retry:
               - ErrorEquals: [Abort]
                 MaxAttempts: 0
+              - ErrorEquals: [OutOfTime]
+                MaxAttempts: 30
+                BackoffRate: 1
+                IntervalSeconds: 0
               - ErrorEquals: [States.ALL]
-                IntervalSeconds: 20
-                MaxAttempts: 4
-                BackoffRate: 1.2
+                IntervalSeconds: 60
+                MaxAttempts: 5
+                BackoffRate: 1.4
+                MaxDelaySeconds: 300
+                JitterStrategy: NONE
             End: true
 
 Outputs:

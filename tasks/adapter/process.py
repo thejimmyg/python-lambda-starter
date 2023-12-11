@@ -6,6 +6,9 @@ import time
 import uuid
 
 
+from tasks.adapter.shared import make_task, Abort, RenderableTaskAbort
+
+
 def run(workflow_id):
     # Here the event is whatever you pass as the JSON when executing the stepfunctions state machine
     uid = str(uuid.uuid4())
@@ -13,52 +16,59 @@ def run(workflow_id):
 
     print(workflow_id, uid, delay_ms)
 
-    next_task, state = tasks.driver.get_next_task(workflow_id)
-    module, obj = state["handler"].split(":")
+    next_task, workflow_state, data = tasks.driver.get_next_task(workflow_id)
+    module, obj = workflow_state["handler"].split(":")
     m = importlib.import_module(module)
     handler_function = getattr(m, obj)
     # This algorithm will always try and run at least one task
     longest_task_ms = 0.0
 
-    def patch_state(data):
+    def patch_workflow_state(data):
         # Save to store
         tasks.driver.patch_state(workflow_id, data)
         # And update locally
-        state.update(data)
+        workflow_state.update(data)
 
-    print(next_task, state)
-    for i in range(next_task, state["num_tasks"] + 1):
+    for number in range(next_task, workflow_state["num_tasks"] + 1):
         time.sleep(delay_ms / 1000.0)
-        begun = False
-        ended = False
         now = time.time()
-        begun_at = datetime.datetime.now()
+        task = make_task(
+            uid,
+            workflow_id=workflow_id,
+            workflow_state=workflow_state,
+            patch_workflow_state=patch_workflow_state,
+            number=number,
+        )
 
-        def register_begin(task_state):
-            nonlocal begun
-            begun = True
-            tasks.driver.begin_task(
-                uid, workflow_id, state["num_tasks"], i, task_state, begun_at
-            )
-
-        def register_end(patch_task_state=None):
-            nonlocal ended
-            ended = True
-            ended_at = datetime.datetime.now()
+        try:
+            handler_function(task)
+        except Abort as a:
+            if isinstance(a, RenderableTaskAbort):
+                task.correctly_escaped_html_status_message = a.render()
             tasks.driver.end_task(
-                uid, workflow_id, state["num_tasks"], i, patch_task_state, ended_at
+                uid,
+                workflow_id,
+                workflow_state["num_tasks"],
+                number,
+                task.correctly_escaped_html_status_message,
+                task.end_state_patches,
+                datetime.datetime.now(),
+            )
+            raise
+        else:
+            tasks.driver.end_task(
+                uid,
+                workflow_id,
+                workflow_state["num_tasks"],
+                number,
+                task.correctly_escaped_html_status_message,
+                task.end_state_patches,
+                datetime.datetime.now(),
             )
 
-        handler_function(i, state, patch_state, register_begin, register_end)
-
-        if not begun:
+        if not task._begun:
             raise Exception(
-                f'register_begin() was not called by {repr(state["handler"])} for task number {i}.'
-            )
-
-        if not ended:
-            raise Exception(
-                f'register_end() was not called by {repr(state["handler"])} for task number {i}.'
+                f'task.begin() was not called by {repr(workflow_state["handler"])} for task number {number}.'
             )
 
         elapsed_ms: float = (time.time() - now) * 1000

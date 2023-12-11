@@ -265,7 +265,16 @@ def test_sdk_submit_input(lambda_url):
         # This is the state we added in register_begin()
         assert dict(progress["tasks"][0])["starting"] == 1
         assert sorted(list(progress["tasks"][0].keys())) == sorted(
-            list(["task", "remaining", "begin", "starting", "begin_uid"])
+            list(
+                [
+                    "task",
+                    "remaining",
+                    "begin",
+                    "starting",
+                    "begin_uid",
+                    "correctly_escaped_html_status_message",
+                ]
+            )
         ), progress["tasks"][0]
 
         print("Waiting 3.5 seconds for the first task to complete")
@@ -288,7 +297,16 @@ def test_sdk_submit_input(lambda_url):
         assert dict(progress["tasks"][1])["starting"] == 1
         assert dict(progress["tasks"][1])["ending"] == 1
         assert sorted(list(progress["tasks"][0].keys())) == sorted(
-            list(["task", "remaining", "begin", "begin_uid", "starting"])
+            list(
+                [
+                    "task",
+                    "remaining",
+                    "begin",
+                    "begin_uid",
+                    "starting",
+                    "correctly_escaped_html_status_message",
+                ]
+            )
         ), progress["tasks"][0]
         # They are in reverse order, so it is this task that has finished
         assert sorted(list(progress["tasks"][1].keys())) == sorted(
@@ -302,6 +320,7 @@ def test_sdk_submit_input(lambda_url):
                     "end_uid",
                     "starting",
                     "ending",
+                    "correctly_escaped_html_status_message",
                 ]
             )
         ), progress["tasks"][1]
@@ -349,6 +368,7 @@ def test_sdk_submit_input(lambda_url):
                         "end_uid",
                         "starting",
                         "ending",
+                        "correctly_escaped_html_status_message",
                     ]
                 )
             ), task

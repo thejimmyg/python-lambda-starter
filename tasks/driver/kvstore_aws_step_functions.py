@@ -12,6 +12,7 @@ from .kvstore_local import (
     progress,
     patch_state,
     _patch_state,
+    get_task,
 )
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "patch_state",
     "begin_state_machine",
     "get_execution_status",
+    "get_task",
 ]
 
 stepfunctions = boto3.client(

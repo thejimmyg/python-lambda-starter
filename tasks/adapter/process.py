@@ -45,6 +45,7 @@ def run(workflow_id):
         except Abort as a:
             if isinstance(a, RenderableTaskAbort):
                 task.correctly_escaped_html_status_message = a.render()
+            task.end_state_patches["failed"] = 1
             tasks.driver.end_task(
                 uid,
                 workflow_id,

@@ -44,7 +44,7 @@ def make_task(uid, workflow_id, workflow_state, patch_workflow_state, number):
         )
         return data
 
-    def begin(correctly_escaped_html_status_message, task_state):
+    def begin(correctly_escaped_html_status_message, task_state=None):
         begun[0] = True
         tasks.driver.begin_task(
             uid,

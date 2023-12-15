@@ -102,7 +102,6 @@ def begin_task(
     data = {
         "begin": begun_at.isoformat(),
         "begin_uid": uid,
-        "correctly_escaped_html_status_message": correctly_escaped_html_status_message,
     }
     if task_state is not None:
         assert "correctly_escaped_html_status_message" not in task_state
@@ -113,6 +112,10 @@ def begin_task(
         assert "end" not in task_state
         assert "end_uid" not in task_state
         data.update(task_state)
+    if correctly_escaped_html_status_message:
+        data[
+            "correctly_escaped_html_status_message"
+        ] = correctly_escaped_html_status_message
     put_task_response = kvstore.driver.put(
         store,
         workflow_id,
@@ -153,6 +156,10 @@ def end_task(
         assert "end" not in patch_task_state
         assert "end_uid" not in patch_task_state
         data.update(patch_task_state)
+    if correctly_escaped_html_status_message:
+        data[
+            "correctly_escaped_html_status_message"
+        ] = correctly_escaped_html_status_message
     pad_length = len(str(num_tasks))
     sk = f"/task/{str(num_tasks-i).zfill(pad_length)}/{str(i).zfill(pad_length)}"
     kvstore.driver.patch(store, workflow_id, sk=sk, data=data)

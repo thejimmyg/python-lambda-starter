@@ -87,32 +87,31 @@ def make_lambda_handler():
             except Abort as a:
                 if isinstance(a, RenderableTaskAbort):
                     task.correctly_escaped_html_status_message = a.render()
+                task.end_state_patches["failed"] = 1
                 tasks.driver.end_task(
                     uid,
                     workflow_id,
                     workflow_state["num_tasks"],
                     number,
-                    task.correctly_escaped_html_status_message,
+                    str(task.correctly_escaped_html_status_message),
                     task.end_state_patches,
                     datetime.datetime.now(),
                 )
-                raise
+                raise Abort(str(a))
             else:
                 tasks.driver.end_task(
                     uid,
                     workflow_id,
                     workflow_state["num_tasks"],
                     number,
-                    task.correctly_escaped_html_status_message,
+                    str(task.correctly_escaped_html_status_message),
                     task.end_state_patches,
                     datetime.datetime.now(),
                 )
-
             if not task._begun:
                 raise Exception(
                     f'task.begin() was not called by {repr(workflow_state["handler"])} for task number {number}.'
                 )
-
             elapsed_ms: float = (time.time() - now) * 1000
             if elapsed_ms > longest_task_ms:
                 longest_task_ms = elapsed_ms

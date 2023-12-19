@@ -51,7 +51,7 @@ def make_lambda_handler():
             "1",
             "true",
         ]:
-            Abort("Workflow aborted via abort key in workflow state")
+            raise Abort("Workflow aborted via abort key in workflow state")
 
         if task_state is not None and "end" in task_state:
             # It must have already been run, and failed. Let's reset it so it can run again.

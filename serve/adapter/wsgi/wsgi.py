@@ -103,14 +103,14 @@ def start_server(
         if isinstance(http.response.body, bytes):
             assert (
                 "Content-Type" in headers
-            ), "No content-type set for bytes type response"
+            ), "No Content-Type set for bytes type response"
             headers["Content-Length"] = str(len(http.response.body))
             start_response(http.response.status, list(headers.items()))
             return [http.response.body]
         elif isinstance(http.response.body, Base64):
             assert (
                 "Content-Type" in headers
-            ), "No content-type set for bytes type response"
+            ), "No Content-Type set for bytes type response"
             body = base64.b64decode(http.response.body._data)
             headers["Content-Length"] = str(len(body))
             start_response(http.response.status, list(headers.items()))

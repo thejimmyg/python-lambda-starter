@@ -18,6 +18,7 @@ class Base64:
 class Request:
     path: str
     query: None | str
+    # The header key here is lowercase
     headers: dict[str, str]
     method: str
     body: None | bytes
@@ -31,6 +32,7 @@ class RespondEarly(Exception):
 @dataclasses.dataclass
 class Response:
     status: str
+    # The header key here is Http-Header-Case
     headers: dict[str, str]
     body: None | bytes | str | Renderable | dict | Base64
     RespondEarly: type[RespondEarly]

@@ -2,8 +2,8 @@ from serve.adapter.wsgi.wsgi import start_server
 import importlib
 import sys
 
-app_path = "app:app"
-bind = ""
+app_path = "app.app:app"
+bind = ":"
 if len(sys.argv) > 1:
     app_path = sys.argv[1]
 if len(sys.argv) > 2:
@@ -15,7 +15,7 @@ app = getattr(app_module, app_name)
 
 
 def main() -> None:
-    start_server({"": app}, port=int(port), host=host)
+    start_server({"": app}, port=int(port or 8000), host=host)
 
 
 if __name__ == "__main__":

@@ -92,10 +92,14 @@ def start_server(
             ),
             context=dict(uid=str(uuid.uuid4())),
         )
-        if handler(http) is not None:
-            print(
-                "Warning, app should not return a response. Did you return instead of setting http.response.body?"
-            )
+        try:
+            returned_value = handler(http)
+            if returned_value is not None:
+                print(
+                    f"Warning, app should not return a response. Did you return instead of setting http.response.body? Returned value was: {repr(returned_value)}"
+                )
+        except RespondEarly:
+            pass
         headers = {}
         for k, v in http.response.headers.items():
             k = "-".join([part.lower().capitalize() for part in k.split("-")])

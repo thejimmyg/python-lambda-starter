@@ -47,7 +47,9 @@ def start_server(
         verified_claims = None
         if path.startswith(api_base_path):
             if security_header in request_headers:
-                assert os.environ.get("DEV_MODE", "false").lower() == "true"
+                assert (
+                    os.environ.get("DEV_MODE", "false").lower() == "true"
+                ), f"Path {repr(path)} is under {repr(api_base_path)} which means JWT tokens should be verified but this server does not support that functionality and DEV_MODE is not enabled to skip it"
                 print(
                     "WARNING: In dev mode, not verifying the claims, just claiming to."
                 )

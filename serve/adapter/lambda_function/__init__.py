@@ -17,7 +17,7 @@ if encoded_environment:
                 value = pairs[1]
                 if key[0] == "$":
                     key = base64.b64decode(key).decode("utf8")
-                if value[0] == "$":
+                if value and value[0] == "$":
                     value = base64.b64decode(value).decode("utf8")
                 if key in os.environ:
                     print(

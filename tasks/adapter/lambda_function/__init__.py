@@ -20,7 +20,7 @@ if encoded_environment:
                 value = pairs[1]
                 if key[0] == "$":
                     key = base64.b64decode(key).decode("utf8")
-                if value[0] == "$":
+                if value and value[0] == "$":
                     value = base64.b64decode(value).decode("utf8")
                 if key in os.environ:
                     print(
@@ -78,6 +78,7 @@ def make_lambda_handler():
                 workflow_state=workflow_state,
                 patch_workflow_state=patch_workflow_state,
                 number=number,
+                default_begin_ttl=None,
             )
 
             now = time.time()
@@ -96,6 +97,7 @@ def make_lambda_handler():
                     str(task.correctly_escaped_html_status_message),
                     task.end_state_patches,
                     datetime.datetime.now(),
+                    ttl=task.end_ttl,
                 )
                 raise Abort(str(a))
             else:
@@ -107,6 +109,7 @@ def make_lambda_handler():
                     str(task.correctly_escaped_html_status_message),
                     task.end_state_patches,
                     datetime.datetime.now(),
+                    ttl=task.end_ttl,
                 )
             if not task._begun:
                 raise Exception(

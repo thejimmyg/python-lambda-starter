@@ -5,7 +5,7 @@ store = "tasks"
 import kvstore.driver
 
 
-def begin_workflow(uid, num_tasks, handler, state=None):
+def begin_workflow(uid, num_tasks, handler, state=None, ttl: None | int = None):
     begin = datetime.datetime.now()
     begin_isoformat = begin.isoformat()
     pk = f"{begin_isoformat}/{uid}"
@@ -26,11 +26,7 @@ def begin_workflow(uid, num_tasks, handler, state=None):
         "begin_uid": str(uid),
     }
     data.update(state)
-    kvstore.driver.put(
-        store,
-        pk,
-        data,
-    )
+    kvstore.driver.put(store, pk, data, ttl=ttl)
     return pk
 
 
@@ -92,6 +88,7 @@ def begin_task(
     correctly_escaped_html_status_message: str,
     task_state: dict[str, int | float | str] | None = None,
     begun_at: datetime.datetime | None = None,
+    ttl=None,
 ):
     if begun_at is None:
         datetime.datetime.now()
@@ -121,6 +118,7 @@ def begin_task(
         workflow_id,
         sk=sk,
         data=data,
+        ttl=ttl,
     )
 
 
@@ -138,6 +136,7 @@ def end_task(
     patch_task_state: dict[str, int | float | str | kvstore.driver.Remove]
     | None = None,
     ended_at: datetime.datetime | None = None,
+    ttl="notchanged",
 ):
     if ended_at is None:
         ended_at = datetime.datetime.now()
@@ -162,7 +161,7 @@ def end_task(
         ] = correctly_escaped_html_status_message
     pad_length = len(str(num_tasks))
     sk = f"/task/{str(num_tasks-i).zfill(pad_length)}/{str(i).zfill(pad_length)}"
-    kvstore.driver.patch(store, workflow_id, sk=sk, data=data)
+    kvstore.driver.patch(store, workflow_id, sk=sk, data=data, ttl=ttl)
 
 
 def end_workflow(uid, workflow_id, status="SUCCEEDED"):

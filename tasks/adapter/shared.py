@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import datetime
-from typing import Any
+from typing import Any, Literal
 
 
 class Abort(Exception):
@@ -29,12 +29,22 @@ class Task:
     begin: Any
     Abort: type[Abort]
     OutOfTime: type[OutOfTime]
+    end_ttl: None | int | Literal["notchanged"]
+    workflow_id: str
+    uid: str
 
 
 import tasks.driver
 
 
-def make_task(uid, workflow_id, workflow_state, patch_workflow_state, number):
+def make_task(
+    uid,
+    workflow_id,
+    workflow_state,
+    patch_workflow_state,
+    number,
+    default_begin_ttl=None,
+):
     begun = [False]
     begun_at = datetime.datetime.now()
 
@@ -54,6 +64,7 @@ def make_task(uid, workflow_id, workflow_state, patch_workflow_state, number):
             correctly_escaped_html_status_message,
             task_state,
             begun_at,
+            ttl=default_begin_ttl,
         )
 
     return Task(
@@ -67,4 +78,7 @@ def make_task(uid, workflow_id, workflow_state, patch_workflow_state, number):
         begin=begin,
         Abort=Abort,
         OutOfTime=OutOfTime,
+        end_ttl="notchanged",
+        workflow_id=workflow_id,
+        uid=uid,
     )
